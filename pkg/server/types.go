@@ -25,9 +25,9 @@ type Auth struct {
 }
 
 type AuthManager interface {
-	GetToken(*http.Request) (*auth.Token, error)
+	//	GetToken(*http.Request) (*auth.Token, error)
 	IsAuthOn() bool
-	IsAuthorized(AuthScope, *http.Request) (bool, error)
+	IsAuthorized(AuthScope, *http.Request) (bool, *auth.Token, error)
 
 	interceptAuth(bool, context.Context) (bool, context.Context)
 	renderError(http.ResponseWriter, *http.Request, string, int)
@@ -40,7 +40,13 @@ type Streamer interface {
 	DirectHttpStream(http.ResponseWriter, *http.Request) (chan<- interface{}, error)
 }
 
+type ApiDiscovery interface {
+	ApiForScope() ServiceMethod
+	ApiForFunc(func(context.Context, http.ResponseWriter, *http.Request)) ServiceMethod
+}
+
 type Server interface {
+	ApiDiscovery
 	http.Handler
 	Handle(string, http.Handler)
 	HandleError(http.ResponseWriter, *http.Request, string, int) error

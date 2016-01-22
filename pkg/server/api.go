@@ -18,6 +18,8 @@ type HttpHeaders map[string]string
 var (
 	NotDefined = ServiceMethod{}
 
+	AuthScopeNone = AuthScope("*")
+
 	HEAD      HttpMethod = HttpMethod("HEAD")
 	PATCH     HttpMethod = HttpMethod("PATCH")
 	GET       HttpMethod = HttpMethod("GET")

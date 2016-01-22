@@ -47,23 +47,13 @@ func (this *engine) buildContext(resp http.ResponseWriter, req *http.Request, to
 // Unified handler
 func httpHandler(engine *engine, binding *methodBinding, am AuthManager) func(http.ResponseWriter, *http.Request) {
 	return func(resp http.ResponseWriter, req *http.Request) {
-		var authed bool
-		var err error
-		if am.IsAuthOn() {
-			authed, err = am.IsAuthorized(binding.Api.AuthScope, req)
-			if err != nil {
-				am.renderError(resp, req, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			authed = true
-		}
-		token, err := am.GetToken(req)
-		if err != nil && am.IsAuthOn() {
-			am.renderError(resp, req, err.Error(), http.StatusBadRequest)
+		authed, token, err := am.IsAuthorized(binding.Api.AuthScope, req)
+		switch err {
+		case nil, ErrNoAuthToken: // continue
+		default:
+			am.renderError(resp, req, "error", http.StatusBadRequest)
 			return
 		}
-
 		ctx := engine.buildContext(resp, req, token)
 		authed, ctx = am.interceptAuth(authed, ctx)
 		if authed {

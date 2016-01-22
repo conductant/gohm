@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/mux"
 	"reflect"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 )
@@ -89,14 +88,6 @@ func (this *serviceBuilder) Route(m ServiceMethod) *routeBuilder {
 
 func (this *serviceBuilder) Start() (chan<- bool, <-chan int) {
 	return Start(this.port, this.Build(), this.onShutdownFunc, this.shutdownTimeout)
-}
-
-func cleanFuncName(f string) string {
-	fn := strings.Split(f, "-")[0]
-	fn = strings.Replace(fn, "(", "", -1)
-	fn = strings.Replace(fn, ")", "", -1)
-	fn = strings.Replace(fn, "*", "", -1)
-	return fn
 }
 
 func (this *serviceBuilder) Build() Server {

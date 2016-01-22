@@ -15,6 +15,10 @@ type Token struct {
 	token *jwt.Token
 }
 
+var (
+	EmptyExpiringToken = NewToken(0 * time.Second)
+)
+
 func NewToken(ttl time.Duration) *Token {
 	token := &Token{token: jwt.New(jwt.SigningMethodRS512)}
 	token.SetExpiration(ttl)
@@ -26,6 +30,18 @@ func (this *Token) SignedString(key func() []byte) (string, error) {
 		return "", err
 	} else {
 		return this.token.SignedString(privateKey)
+	}
+}
+
+func (this *Token) SetHeader(header http.Header, key func() []byte) error {
+	if key == nil {
+		return ErrNoPrivateKeyFunc
+	}
+	if sk, err := this.SignedString(key); err == nil {
+		header.Set("Authorization", "Bearer "+sk)
+		return nil
+	} else {
+		return err
 	}
 }
 
@@ -55,6 +71,10 @@ func RsaPublicKeyFromPem(source func() []byte) (func(*jwt.Token) (interface{}, e
 }
 
 func TokenFromString(tokenString string, key func() []byte, now func() time.Time) (*Token, error) {
+	if key == nil {
+		return nil, ErrNoPublicKeyFunc
+	}
+
 	if keyFunc, err := RsaPublicKeyFromPem(key); err != nil {
 		return nil, err
 	} else {
@@ -67,12 +87,23 @@ func TokenFromString(tokenString string, key func() []byte, now func() time.Time
 }
 
 // parses from header or query
+// https://github.com/dgrijalva/jwt-go/blob/master/token.go#L94
+// Either Authorization: Bearer ....
+// Or query parameter 'access_token=...'
 func TokenFromHttp(req *http.Request, key func() []byte, now func() time.Time) (*Token, error) {
+	if key == nil {
+		return nil, ErrNoPublicKeyFunc
+	}
+
 	if keyFunc, err := RsaPublicKeyFromPem(key); err != nil {
 		return nil, err
 	} else {
 		if t, err := jwt.ParseFromRequest(req, keyFunc); err != nil {
-			return nil, err
+			if err == jwt.ErrNoTokenInRequest {
+				return nil, ErrNoAuthToken
+			} else {
+				return nil, err
+			}
 		} else {
 			return checkTokenExpiration(t, now)
 		}

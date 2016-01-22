@@ -35,10 +35,8 @@ var (
 	}
 )
 
-type test_server int
-
-func (s test_server) TestHandle1(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	glog.Infoln("TestHandle1 called")
+func testFunc1(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	glog.Infoln("testFunc1 called")
 	sm := ApiForScope(ctx)
 	glog.Infoln("Api=", sm, sm.Equals(test_method1))
 	if !sm.Equals(test_method1) {
@@ -46,8 +44,8 @@ func (s test_server) TestHandle1(ctx context.Context, resp http.ResponseWriter, 
 	}
 }
 
-func test_func2(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	glog.Infoln("test_func2 called")
+func testFunc2(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	glog.Infoln("testFunc2 called")
 	sm := ApiForScope(ctx)
 	glog.Infoln("Api=", sm, test_method2.Equals(sm))
 	if !sm.Equals(test_method2) {
@@ -56,11 +54,15 @@ func test_func2(ctx context.Context, resp http.ResponseWriter, req *http.Request
 }
 
 func (suite *TestSuiteBuilder) TestBuild(c *C) {
-	s := test_server(1)
 	engine := NewService().WithAuth(DisableAuth()).
-		Route(test_method1).To(s.TestHandle1).
-		Route(test_method2).To(test_func2).Build()
+		Route(test_method1).To(testFunc1).
+		Route(test_method2).To(testFunc2).Build()
 	c.Log(engine)
+
+	engine2 := NewService().WithAuth(DisableAuth()).
+		Route(test_method1).To(testFunc1).
+		Route(test_method2).To(testFunc2).Build()
+	c.Log(engine2)
 }
 
 func test_get(c *C, url string) {
@@ -73,10 +75,9 @@ func test_get(c *C, url string) {
 }
 
 func (suite *TestSuiteBuilder) TestRun(c *C) {
-	s := test_server(1)
 	stop, stopped := NewService().WithAuth(DisableAuth()).
-		Route(test_method1).To(s.TestHandle1).
-		Route(test_method2).To(test_func2).
+		Route(test_method1).To(testFunc1).
+		Route(test_method2).To(testFunc2).
 		Start()
 
 	go func() {

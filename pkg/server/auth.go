@@ -32,12 +32,11 @@ var (
 func (data Auth) Init() AuthManager {
 	var s Auth = data
 	if s.IsAuthOnFunc == nil {
-		panic(fmt.Errorf("IsAuthOnFunc not set."))
+		s.IsAuthOnFunc = func() bool { return true }
 	}
 	if s.VerifyKeyFunc == nil && s.IsAuthOnFunc() {
 		panic(fmt.Errorf("Public key file input function not set."))
 	}
-
 	if s.GetTimeFunc == nil {
 		s.GetTimeFunc = time.Now
 	}
@@ -56,26 +55,26 @@ func (this *Auth) IsAuthOn() bool {
 	return this.IsAuthOnFunc()
 }
 
-func (this *Auth) IsAuthorized(scope AuthScope, req *http.Request) (bool, error) {
+func (this *Auth) IsAuthorized(scope AuthScope, req *http.Request) (bool, *auth.Token, error) {
 	authed := false
 	token, err := auth.TokenFromHttp(req, this.VerifyKeyFunc, this.GetTimeFunc)
-	if err != nil {
-		return false, err
+	switch err {
+	case nil:
+	case auth.ErrNoPublicKeyFunc, auth.ErrNoAuthToken:
+		return !this.IsAuthOn() || scope == AuthScopeNone, nil, ErrNoAuthToken
+	default:
+		return false, nil, err
 	}
-	authed = token.HasKey(string(scope))
-	return authed, err
+	if scope == AuthScopeNone {
+		return true, token, nil
+	} else {
+		authed = token.HasKey(string(scope))
+		return authed, token, nil
+	}
 }
 
 func (this *Auth) interceptAuth(authed bool, ctx context.Context) (bool, context.Context) {
 	return this.InterceptAuthFunc(authed, ctx)
-}
-
-// Best-effort to extract the token from http request.  Note that if auth is not on, token is nil.
-func (this *Auth) GetToken(req *http.Request) (*auth.Token, error) {
-	if !this.IsAuthOn() {
-		return nil, nil
-	}
-	return auth.TokenFromHttp(req, this.VerifyKeyFunc, this.GetTimeFunc)
 }
 
 func (this *Auth) renderError(resp http.ResponseWriter, req *http.Request, message string, code int) {
