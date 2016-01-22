@@ -3,76 +3,86 @@ package server
 import (
 	"fmt"
 	"github.com/golang/glog"
-	"io"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
+	"syscall"
 	"time"
 )
 
-func Start(port int, endpoint http.Handler, onShutdown func() error, timeout time.Duration) (chan<- bool, <-chan int) {
-	var wg sync.WaitGroup
-	shutdownc := make(chan io.Closer, 1)
-	go HandleSignals(shutdownc, timeout)
+func Start(port int, endpoint http.Handler, onShutdown func() error, timeout time.Duration) (chan<- int, <-chan error) {
+	shutdownTasks := make(chan func() error, 100)
 
-	shutdown := onShutdown
-	if shutdown == nil {
-		shutdown = func() error { return nil }
-	}
+	// Custom shutdown task
+	shutdownTasks <- onShutdown
 
 	glog.Infoln("Starting server")
-	apiDone := make(chan bool)
-	RunServer(&http.Server{
-		Handler: endpoint,
-		Addr:    fmt.Sprintf(":%d", port),
-	}, apiDone)
-
-	// Here is a list of shutdown hooks to execute when receiving the OS signal
-	shutdown_tasks := ShutdownSequence{
-		ShutdownHook(func() error {
-			err := shutdown()
-			wg.Done()
-			return err
-		}),
-		ShutdownHook(func() error {
-			apiDone <- true
-			glog.Infoln("Stopped endpoint")
-			wg.Done()
-			return nil
-		}),
+	engineStop, engineStopped := RunServer(&http.Server{Handler: endpoint, Addr: fmt.Sprintf(":%d", port)})
+	shutdownTasks <- func() error {
+		glog.Infoln("Stopping engine")
+		engineStop <- 1
+		err := <-engineStopped
+		glog.Infoln("Stopped engine. Err=", err)
+		return err
 	}
 
 	// Pid file
 	if pid, pidErr := savePidFile(fmt.Sprintf("%d", port)); pidErr == nil {
-		shutdown_tasks = append(shutdown_tasks,
-			ShutdownHook(func() error {
-				os.Remove(pid)
-				glog.Infoln("Removed pid file:", pid)
-				wg.Done()
-				return nil
-			}))
+		// Clean up pid file
+		shutdownTasks <- func() error {
+			os.Remove(pid)
+			glog.Infoln("Removed pid file:", pid)
+			return nil
+		}
 	}
+	shutdownTasks <- nil // stop on this
 
-	shutdownc <- shutdown_tasks
-	count := len(shutdown_tasks)
-	wg.Add(count)
-	completed := make(chan int)
+	// Triggers to start shutdown sequence
+	fromKernel := make(chan os.Signal, 1)
+
+	// kill -9 is SIGKILL and is uncatchable.
+	signal.Notify(fromKernel, syscall.SIGHUP)  // 1
+	signal.Notify(fromKernel, syscall.SIGINT)  // 2
+	signal.Notify(fromKernel, syscall.SIGQUIT) // 3
+	signal.Notify(fromKernel, syscall.SIGABRT) // 6
+	signal.Notify(fromKernel, syscall.SIGTERM) // 15
+
+	fromUser := make(chan int)
+	stopped := make(chan error)
 	go func() {
-		wg.Wait()
-		completed <- count
+		select {
+		case <-fromKernel:
+			glog.Infoln("Received kernel signal to start shutdown.")
+		case <-fromUser:
+			glog.Infoln("Received user signal to start shutdown.")
+		}
+		for {
+			task, ok := <-shutdownTasks
+			if !ok || task == nil {
+				break
+			}
+			if err := task(); err != nil {
+				glog.Warningln("Error while shutting down:", err)
+				stopped <- err
+				return
+			}
+		}
+		stopped <- nil
+		return
 	}()
-	return apiDone, completed
+
+	return fromUser, stopped
 }
 
 // Runs the http server.  This server offers more control than the standard go's default http server
 // in that when a 'true' is sent to the stop channel, the listener is closed to force a clean shutdown.
 // The return value is a channel that can be used to block on.  An error is received if server shuts
 // down in error; or a nil is received on a clean signalled shutdown.
-func RunServer(server *http.Server, stop <-chan bool) <-chan error {
+func RunServer(server *http.Server) (chan<- int, <-chan error) {
 	protocol := "tcp"
 	// e.g. 0.0.0.0:80 or :80 or :8080
 	if match, _ := regexp.MatchString("[a-zA-Z0-9\\.]*:[0-9]{2,}", server.Addr); !match {
@@ -84,37 +94,43 @@ func RunServer(server *http.Server, stop <-chan bool) <-chan error {
 		panic(err)
 	}
 
-	stoppedChan := make(chan error)
-	glog.Infoln("Starting", protocol, "listener at", server.Addr)
+	stop := make(chan int)
+	stopped := make(chan error)
+
 	if protocol == "unix" {
-		updateDomainSocketPermissions(server.Addr)
+		if _, err = os.Lstat(server.Addr); err == nil {
+			// Update socket filename permission
+			os.Chmod(server.Addr, 0777)
+		}
 	}
 
-	// This will be set to true if a shutdown signal is received. This allows us to detect
-	// if the server stop is intentional or due to some error.
-	fromSignal := false
+	userInitiated := new(bool)
+	go func() {
+		<-stop
+		*userInitiated = true
+		glog.Infoln("Closing listener")
+		listener.Close()
+		glog.Infoln("Listener closed")
+	}()
 
-	// The main goroutine where the server listens on the network connection
-	go func(fromSignal *bool) {
+	go func() {
+
+		glog.Infoln("Starting", protocol, "listener at", server.Addr)
+
 		// Serve will block until an error (e.g. from shutdown, closed connection) occurs.
 		err := server.Serve(listener)
-		if !*fromSignal {
-			glog.Warningln("Warning: server stops due to error", err)
-		}
-		stoppedChan <- err
-	}(&fromSignal)
 
-	// Another goroutine that listens for signal to close the network connection
-	// on shutdown.  This will cause the server.Serve() to return.
-	go func(fromSignal *bool) {
-		select {
-		case <-stop:
-			listener.Close()
-			*fromSignal = true // Intentionally stopped from signal
-			return
+		switch {
+		case !*userInitiated && err != nil:
+			glog.Infoln("Engine stopped due to error", err)
+			panic(err)
+		case *userInitiated:
+			stopped <- nil
+		default:
+			stopped <- err
 		}
-	}(&fromSignal)
-	return stoppedChan
+	}()
+	return stop, stopped
 }
 
 func savePidFile(args ...string) (string, error) {
@@ -126,12 +142,4 @@ func savePidFile(args ...string) (string, error) {
 	defer pidFile.Close()
 	fmt.Fprintf(pidFile, "%d", os.Getpid())
 	return pidFile.Name(), nil
-}
-
-func updateDomainSocketPermissions(filename string) (err error) {
-	_, err = os.Lstat(filename)
-	if err != nil {
-		return
-	}
-	return os.Chmod(filename, 0777)
 }

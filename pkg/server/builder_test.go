@@ -90,5 +90,5 @@ func (suite *TestSuiteBuilder) TestRun(c *C) {
 	test_get(c, "http://localhost:8080/method2")
 
 	time.Sleep(1 * time.Second)
-	stop <- true
+	stop <- 1
 }

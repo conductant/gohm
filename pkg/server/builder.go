@@ -86,7 +86,7 @@ func (this *serviceBuilder) Route(m ServiceMethod) *routeBuilder {
 	return route
 }
 
-func (this *serviceBuilder) Start() (chan<- bool, <-chan int) {
+func (this *serviceBuilder) Start() (chan<- int, <-chan error) {
 	return Start(this.port, this.Build(), this.onShutdownFunc, this.shutdownTimeout)
 }
 

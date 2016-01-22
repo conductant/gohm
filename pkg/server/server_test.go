@@ -46,7 +46,7 @@ func (this *testE2EServer) testSimpleGet(ctx context.Context, resp http.Response
 
 type TestSuiteServer struct {
 	server     *testE2EServer
-	stopServer chan<- bool
+	stopServer chan<- int
 }
 
 var _ = Suite(&TestSuiteServer{})
@@ -75,7 +75,7 @@ func (suite *TestSuiteServer) SetUpSuite(c *C) {
 }
 
 func (suite *TestSuiteServer) TearDownSuite(c *C) {
-	suite.stopServer <- true
+	suite.stopServer <- 1
 }
 
 func (suite *TestSuiteServer) TestNoAuthToken(c *C) {
