@@ -47,21 +47,21 @@ func (this *serverContext) Value(key interface{}) interface{} {
 	return this.Context.Value(key)
 }
 
-func HttpRequestFromContext(ctx context.Context) *http.Request {
+func ContextGetHttpRequest(ctx context.Context) *http.Request {
 	if v, ok := (ctx.Value(HttpRequestContextKey)).(*http.Request); ok {
 		return v
 	}
 	return nil
 }
 
-func HttpResponseFromContext(ctx context.Context) http.ResponseWriter {
+func ContextGetHttpResponse(ctx context.Context) http.ResponseWriter {
 	if v, ok := (ctx.Value(HttpResponseContextKey)).(http.ResponseWriter); ok {
 		return v
 	}
 	return nil
 }
 
-func HttpStreamerFromContext(ctx context.Context) Streamer {
+func ContextGetStreamer(ctx context.Context) Streamer {
 	if v, ok := (ctx.Value(HttpStreamerContextKey)).(Streamer); ok {
 		return v
 	}
@@ -87,8 +87,8 @@ func ApiForFunc(ctx context.Context, f func(context.Context, http.ResponseWriter
 }
 
 func HandleError(ctx context.Context, code int, message string) {
-	req := HttpRequestFromContext(ctx)
-	resp := HttpResponseFromContext(ctx)
+	req := ContextGetHttpRequest(ctx)
+	resp := ContextGetHttpResponse(ctx)
 	if engine, ok := (ctx.Value(EngineContextKey)).(*engine); ok {
 		if req != nil && resp != nil {
 			engine.renderError(resp, req, message, code)
