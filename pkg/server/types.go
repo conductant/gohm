@@ -49,6 +49,4 @@ type Server interface {
 	ApiDiscovery
 	http.Handler
 	Handle(string, http.Handler)
-	HandleError(http.ResponseWriter, *http.Request, string, int) error
-	Stop()
 }

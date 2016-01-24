@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/conductant/gohm/pkg/auth"
+	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"net/http"
 	"runtime"
@@ -83,4 +84,17 @@ func ApiForFunc(ctx context.Context, f func(context.Context, http.ResponseWriter
 		return engine.ApiForFunc(f)
 	}
 	return ServiceMethod{}
+}
+
+func HandleError(ctx context.Context, code int, message string) {
+	req := HttpRequestFromContext(ctx)
+	resp := HttpResponseFromContext(ctx)
+	if engine, ok := (ctx.Value(EngineContextKey)).(*engine); ok {
+		if req != nil && resp != nil {
+			engine.renderError(resp, req, message, code)
+			return
+		}
+	}
+	glog.Warningln("Error -- context=", ctx, "code=", code, "message=", message)
+	return
 }

@@ -94,10 +94,6 @@ func (this *engine) Handle(path string, handler http.Handler) {
 	this.router.Handle(path, handler)
 }
 
-func (this *engine) HandleError(resp http.ResponseWriter, req *http.Request, message string, code int) (err error) {
-	return this.renderError(resp, req, message, code)
-}
-
 func (this *engine) EventChannel() chan<- *ServerEvent {
 	return this.event_chan
 }
