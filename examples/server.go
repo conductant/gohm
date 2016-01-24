@@ -34,31 +34,16 @@ func loadPublicKeyFromFile() []byte {
 	return bytes
 }
 
-func main() {
-
-	flag.Parse()
-
-	buildInfo := version.BuildInfo()
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "%s\n", buildInfo.Notice())
-		fmt.Fprintf(os.Stderr, "flags:\n")
-		flag.PrintDefaults()
-	}
-
-	glog.Infoln(buildInfo.Notice())
-	buildInfo.HandleFlag()
-
+func startServer(port int) <-chan error {
 	key := loadPublicKeyFromFile()
-
 	// For implementing shutdown
 	proxy := make(chan bool)
-
 	stop, stopped := server.NewService().
 		WithAuth(
 		server.Auth{
 			VerifyKeyFunc: func() []byte { return key },
 		}.Init()).
-		ListenPort(*port).
+		ListenPort(port).
 		Route(
 		server.ServiceMethod{
 			UrlRoute:   "/info",
@@ -68,7 +53,7 @@ func main() {
 		To(
 		func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 			glog.Infoln("Showing version info.")
-			err := server.Marshal(req, buildInfo, resp)
+			err := server.Marshal(req, version.BuildInfo(), resp)
 			if err != nil {
 				panic(err)
 			}
@@ -90,13 +75,39 @@ func main() {
 			return nil
 		}).
 		Start()
-
 	// For stopping the server
 	go func() {
 		<-proxy
 		stop <- 1
 	}()
+	return stopped
+}
 
-	<-stopped
+func main() {
+
+	flag.Parse()
+
+	buildInfo := version.BuildInfo()
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "%s\n", buildInfo.Notice())
+		fmt.Fprintf(os.Stderr, "flags:\n")
+		flag.PrintDefaults()
+	}
+
+	glog.Infoln(buildInfo.Notice())
+	buildInfo.HandleFlag()
+
+	// Two server cores running on different ports.  Note that quitquitquit will
+	// only shutdown the server requested but no the other one.  Kernel signals
+	// will shutdown both.
+	stopped1 := startServer(*port)
+	stopped2 := startServer(*port + 1)
+
+	for range []int{1, 2} {
+		select {
+		case <-stopped1:
+		case <-stopped2:
+		}
+	}
 	glog.Infoln("Bye")
 }

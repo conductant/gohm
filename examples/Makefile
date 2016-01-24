@@ -21,6 +21,7 @@ build-example-server:
 example-run-server: gen-key-pair
 	${GODEP} go run -ldflags "$(LDFLAGS)" server.go --logtostderr --port=5050 --auth.public.key=./example_key.pub
 
+EXAMPLE_SERVER_PORT?=5050
 example-server-quitquitquit:
 	curl -i -X POST -H "Authorization: Bearer `./token -token.private.key=example_key -A quitquitquit`" \
-	http://localhost:5050/quitquitquit
+	http://localhost:$(EXAMPLE_SERVER_PORT)/quitquitquit
