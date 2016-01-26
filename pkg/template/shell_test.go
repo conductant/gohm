@@ -5,6 +5,7 @@ import (
 	. "gopkg.in/check.v1"
 	"io"
 	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -44,23 +45,22 @@ func (suite *TestSuiteShell) TestRunShell(c *C) {
 
 	stdout, err = shell("echo foo | sed -e 's/f/g/g'")
 	sed := toString(c, stdout)
+	c.Log("sed=", sed)
+	c.Assert(sed, DeepEquals, "goo\n")
 
 	_, err = shell("echo '***********'")
 	c.Assert(err, IsNil)
 
 	stdout, err = shell("echo $USER")
 	home := toString(c, stdout)
+	c.Log("home=", home)
+	c.Assert(home, DeepEquals, os.Getenv("USER")+"\n")
 
 	_, err = shell("echo '***********'")
 	c.Assert(err, IsNil)
 
 	stdout, err = shell("ls | wc -l")
 	ls := toString(c, stdout)
-
-	c.Log("sed=", sed)
-	c.Assert(len(sed), Not(Equals), 0)
-	c.Log("home=", home)
-	c.Assert(len(home), Not(Equals), 0)
 	c.Log("ls=", ls)
 	c.Assert(len(ls), Not(Equals), 0)
 }
