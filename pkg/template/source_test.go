@@ -6,7 +6,9 @@ import (
 	"github.com/conductant/gohm/pkg/testutil"
 	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 )
@@ -14,10 +16,13 @@ import (
 func TestSource(t *testing.T) { TestingT(t) }
 
 type TestSuiteSource struct {
-	template string
-	stop     chan<- int
-	stopped  <-chan error
+	template     string
+	stop         chan<- int
+	stopped      <-chan error
+	templateFile string
 }
+
+var templateFileContent = "this is some test template written to disk"
 
 var _ = Suite(&TestSuiteSource{})
 
@@ -33,11 +38,16 @@ func (suite *TestSuiteSource) SetUpSuite(c *C) {
 		To(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 		resp.Write([]byte(suite.template))
 	}).Start()
+
+	suite.templateFile = os.TempDir() + "/test-template"
+	err := ioutil.WriteFile(suite.templateFile, []byte(templateFileContent), 0644)
+	c.Assert(err, IsNil)
 }
 
 func (suite *TestSuiteSource) TearDownSuite(c *C) {
 	suite.stop <- 1
 	<-suite.stopped
+	os.Remove(suite.templateFile)
 }
 
 func (suite *TestSuiteSource) TestStringSource(c *C) {
@@ -46,6 +56,14 @@ func (suite *TestSuiteSource) TestStringSource(c *C) {
 	t, err := Source(ctx, source)
 	c.Assert(err, IsNil)
 	c.Assert(string(t), DeepEquals, "{.FirstName}{.LastName}")
+}
+
+func (suite *TestSuiteSource) TestFileSource(c *C) {
+	source := "file://" + suite.templateFile
+	ctx := context.Background()
+	t, err := Source(ctx, source)
+	c.Assert(err, IsNil)
+	c.Assert(string(t), DeepEquals, templateFileContent)
 }
 
 func (suite *TestSuiteSource) TestHttpSource(c *C) {

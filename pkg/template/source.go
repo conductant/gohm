@@ -8,13 +8,11 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 )
 
 type SourceFunc func(context.Context, string) ([]byte, error)
 
 var (
-	lock      sync.Mutex
 	protocols = map[string]SourceFunc{}
 )
 
