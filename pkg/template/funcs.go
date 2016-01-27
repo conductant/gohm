@@ -75,7 +75,7 @@ func ParsePort(ctx context.Context) interface{} {
 func ContentInline(ctx context.Context) interface{} {
 	return func(uri string) (string, error) {
 		data := ContextGetTemplateData(ctx)
-		applied, err := Apply(uri, data)
+		applied, err := Apply([]byte(uri), data)
 		if err != nil {
 			return NullTemplate, err
 		}
@@ -91,7 +91,7 @@ func ContentInline(ctx context.Context) interface{} {
 func ContentToFile(ctx context.Context) interface{} {
 	return func(uri string, opts ...interface{}) (string, error) {
 		data := ContextGetTemplateData(ctx)
-		applied, err := Apply(uri, data)
+		applied, err := Apply([]byte(uri), data)
 		if err != nil {
 			return NullTemplate, err
 		}
@@ -112,7 +112,7 @@ func ContentToFile(ctx context.Context) interface{} {
 			case int:
 				fileMode = os.FileMode(opt.(int))
 			case string:
-				if applied, err = Apply(opt.(string), data); err != nil {
+				if applied, err = Apply([]byte(opt.(string)), data); err != nil {
 					return NullContent, err
 				} else {
 					destination = string(applied)

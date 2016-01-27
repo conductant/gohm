@@ -35,9 +35,6 @@ func toString(c *C, out io.Reader) string {
 }
 
 func (suite *TestSuiteShell) TestRunShell(c *C) {
-	testValue := "test-test"
-	os.Setenv("TEST", testValue)
-	c.Assert(os.Getenv("TEST"), Equals, testValue)
 
 	f := ExecuteShell(context.Background())
 	shell, ok := f.(func(string) (io.Reader, error))
@@ -56,10 +53,10 @@ func (suite *TestSuiteShell) TestRunShell(c *C) {
 	_, err = shell("echo '***********'")
 	c.Assert(err, IsNil)
 
-	stdout, err = shell("echo $TEST")
+	stdout, err = shell("echo ${TERM}")
 	env := toString(c, stdout)
 	c.Log("env=", env)
-	c.Assert(strings.Trim(env, " \n"), Equals, testValue)
+	c.Assert(strings.Trim(env, " \n"), Equals, os.Getenv("TERM"))
 
 	_, err = shell("echo '***********'")
 	c.Assert(err, IsNil)

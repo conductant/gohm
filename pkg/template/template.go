@@ -28,13 +28,15 @@ func GetKeyForTemplate(tmpl []byte) string {
 	return strconv.FormatUint(hash.Sum64(), 16)
 }
 
-func Apply(tmpl string, data interface{}, funcs ...template.FuncMap) ([]byte, error) {
+// Generic Apply template.  This is simple convenince wrapper that generates a hash key
+// for the template name based on the template content itself.
+func Apply(tmpl []byte, data interface{}, funcs ...template.FuncMap) ([]byte, error) {
 	fm := template.FuncMap{}
 	for _, opt := range funcs {
 		fm = MergeFuncMaps(fm, opt)
 	}
-	t := template.New(GetKeyForTemplate([]byte(tmpl))).Funcs(fm)
-	t, err := t.Parse(tmpl)
+	t := template.New(GetKeyForTemplate(tmpl)).Funcs(fm)
+	t, err := t.Parse(string(tmpl))
 	if err != nil {
 		return nil, err
 	}
@@ -51,29 +53,32 @@ func Execute(ctx context.Context, uri string, funcs ...template.FuncMap) ([]byte
 	}
 
 	url := uri
-	if applied, err := Apply(uri, data, fm); err != nil {
+	if applied, err := Apply([]byte(uri), data, fm); err != nil {
 		return nil, err
 	} else {
 		url = string(applied)
 	}
 
-	body := NullTemplate
+	var body []byte
+	var err error
 	switch {
 	case strings.Index(url, "func://") == 0:
-		if f, has := fm[url[len("func://"):]]; has {
-			if ff, ok := f.(func() string); ok {
-				body = ff()
-			} else {
+		if f, has := fm[url[len("func://"):]]; !has {
+			return nil, ErrMissingTemplateFunc
+		} else {
+			switch f.(type) {
+			case func() []byte:
+				body = f.(func() []byte)()
+			case func() string:
+				body = []byte(f.(func() string)())
+			default:
 				return nil, ErrBadTemplateFunc
 			}
-		} else {
-			return nil, ErrMissingTemplateFunc
 		}
 	default:
-		if bytes, err := Source(ctx, url); err != nil {
+		body, err = Source(ctx, url)
+		if err != nil {
 			return nil, err
-		} else {
-			body = string(bytes)
 		}
 	}
 	return Apply(body, data, fm)
