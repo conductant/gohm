@@ -1,6 +1,7 @@
 package template
 
 import (
+	"fmt"
 	"github.com/conductant/gohm/pkg/auth"
 	"github.com/conductant/gohm/pkg/server"
 	"github.com/conductant/gohm/pkg/testutil"
@@ -16,6 +17,7 @@ import (
 func TestSource(t *testing.T) { TestingT(t) }
 
 type TestSuiteSource struct {
+	port         int
 	template     string
 	stop         chan<- int
 	stopped      <-chan error
@@ -24,11 +26,11 @@ type TestSuiteSource struct {
 
 var templateFileContent = "this is some test template written to disk"
 
-var _ = Suite(&TestSuiteSource{})
+var _ = Suite(&TestSuiteSource{port: 7981})
 
 func (suite *TestSuiteSource) SetUpSuite(c *C) {
 	suite.stop, suite.stopped = server.NewService().
-		ListenPort(7891).
+		ListenPort(suite.port).
 		WithAuth(server.Auth{VerifyKeyFunc: testutil.PublicKeyFunc}.Init()).
 		Route(server.ServiceMethod{UrlRoute: "/template", HttpMethod: server.GET, AuthScope: server.AuthScopeNone}).
 		To(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
@@ -68,7 +70,7 @@ func (suite *TestSuiteSource) TestFileSource(c *C) {
 
 func (suite *TestSuiteSource) TestHttpSource(c *C) {
 	suite.template = "this-template"
-	source := "http://localhost:7891/template"
+	source := fmt.Sprintf("http://localhost:%d/template", suite.port)
 	ctx := context.Background()
 	t, err := Source(ctx, source)
 	c.Assert(err, IsNil)
@@ -77,7 +79,7 @@ func (suite *TestSuiteSource) TestHttpSource(c *C) {
 
 func (suite *TestSuiteSource) TestHttpSourceWithToken(c *C) {
 	suite.template = "secure-template"
-	source := "http://localhost:7891/secure"
+	source := fmt.Sprintf("http://localhost:%d/secure", suite.port)
 
 	token := auth.NewToken(1*time.Hour).Add("secure", 1)
 	ctx := context.Background()

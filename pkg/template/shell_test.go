@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -34,6 +35,10 @@ func toString(c *C, out io.Reader) string {
 }
 
 func (suite *TestSuiteShell) TestRunShell(c *C) {
+	testValue := "test-test"
+	os.Setenv("TEST", testValue)
+	c.Assert(os.Getenv("TEST"), Equals, testValue)
+
 	f := ExecuteShell(context.Background())
 	shell, ok := f.(func(string) (io.Reader, error))
 	c.Assert(ok, Equals, true)
@@ -51,16 +56,16 @@ func (suite *TestSuiteShell) TestRunShell(c *C) {
 	_, err = shell("echo '***********'")
 	c.Assert(err, IsNil)
 
-	stdout, err = shell("echo $USER")
-	home := toString(c, stdout)
-	c.Log("home=", home)
-	c.Assert(home, DeepEquals, os.Getenv("USER")+"\n")
+	stdout, err = shell("echo $TEST")
+	env := toString(c, stdout)
+	c.Log("env=", env)
+	c.Assert(strings.Trim(env, " \n"), Equals, testValue)
 
 	_, err = shell("echo '***********'")
 	c.Assert(err, IsNil)
 
-	stdout, err = shell("ls | wc -l")
-	ls := toString(c, stdout)
-	c.Log("ls=", ls)
-	c.Assert(len(ls), Not(Equals), 0)
+	stdout, err = shell("ps -ef | wc -l | sed -e 's/ //g'")
+	ps := toString(c, stdout)
+	c.Log("ps=", ps)
+	c.Assert(len(ps), Not(Equals), 0)
 }

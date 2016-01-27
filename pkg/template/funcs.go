@@ -1,13 +1,12 @@
 package template
 
 import (
-	"fmt"
-	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -15,6 +14,7 @@ import (
 
 var (
 	NullTemplate string = ""
+	NullContent  string = ""
 
 	lock      sync.Mutex
 	userFuncs = map[string]func(context.Context) interface{}{}
@@ -61,9 +61,12 @@ func ParseHost(ctx context.Context) interface{} {
 }
 
 func ParsePort(ctx context.Context) interface{} {
-	return func(hostport string) (string, error) {
+	return func(hostport string) (int, error) {
 		_, port, err := net.SplitHostPort(hostport)
-		return port, err
+		if err != nil {
+			return 0, err
+		}
+		return strconv.Atoi(port)
 	}
 }
 
@@ -85,10 +88,8 @@ func ContentInline(ctx context.Context) interface{} {
 	}
 }
 
-// Fetch the url and write content to temp file or given filepath.  File mode also an option.
-// ex) {{ file "http://file/here" "/path/to/file" "0644" }}
 func ContentToFile(ctx context.Context) interface{} {
-	return func(uri string, opts ...string) (string, error) {
+	return func(uri string, opts ...interface{}) (string, error) {
 		data := ContextGetTemplateData(ctx)
 		applied, err := Apply(uri, data)
 		if err != nil {
@@ -100,68 +101,58 @@ func ContentToFile(ctx context.Context) interface{} {
 			return NullTemplate, err
 		}
 
-		// Write to local file and return the path, unless the
-		// path is provided.
 		destination := os.TempDir()
-		// the destination path is given
-		if len(opts) >= 1 {
-			destination = opts[0]
-			// We support variables inside the function argument
-			p, err := Apply(destination, data)
-			if err != nil {
-				return NullTemplate, err
-			}
-			destination = string(p)
-			switch {
-			case strings.Index(destination, "~") > -1:
-				// expand tilda
-				destination = strings.Replace(destination, "~", os.Getenv("HOME"), 1)
-			case strings.Index(destination, "./") > -1:
-				// expand tilda
-				destination = strings.Replace(destination, "./", os.Getenv("PWD")+"/", 1)
+		fileMode := os.FileMode(0644)
+
+		// The optional param ordering not important. We check by type.
+		// String -> destination path
+		// Int -> file mode
+		for _, opt := range opts {
+			switch opt.(type) {
+			case int:
+				fileMode = os.FileMode(opt.(int))
+			case string:
+				if applied, err = Apply(opt.(string), data); err != nil {
+					return NullContent, err
+				} else {
+					destination = string(applied)
+				}
+				// Also expands shell path variables
+				switch {
+				case strings.Index(destination, "~") > -1:
+					// expand tilda
+					destination = strings.Replace(destination, "~", os.Getenv("HOME"), 1)
+				case strings.Index(destination, "./") > -1:
+					// expand tilda
+					destination = strings.Replace(destination, "./", os.Getenv("PWD")+"/", 1)
+				}
 			}
 		}
-		// Default permission unless it's provided
-		var perm os.FileMode = 0644
-		if len(opts) >= 2 {
-			permString := opts[1]
-			perm = fileModeFromString(permString)
-		}
-		fpath := destination
-		parent := filepath.Dir(fpath)
+
+		parent := filepath.Dir(destination)
 		fi, err := os.Stat(parent)
 		if err != nil {
 			switch {
 			case os.IsNotExist(err):
-				err = os.MkdirAll(parent, 0777)
+				err = os.MkdirAll(parent, fileMode)
 				if err != nil {
-					return NullTemplate, err
+					return NullContent, err
 				}
 			default:
-				return NullTemplate, err
+				return NullContent, err
 			}
 		}
 		// read again after we created the directories
-		fi, err = os.Stat(fpath)
+		fi, err = os.Stat(destination)
 		if err == nil && fi.IsDir() {
 			// build the name because we provided only a directory path
-			fpath = filepath.Join(destination, filepath.Base(string(url)))
+			destination = filepath.Join(destination, filepath.Base(string(url)))
 		}
 
-		err = ioutil.WriteFile(fpath, []byte(content), perm)
-		glog.Infoln("Written", len([]byte(content)), " bytes to", fpath, "perm=", perm.String(), "Err=", err)
+		err = ioutil.WriteFile(destination, []byte(content), fileMode)
 		if err != nil {
 			return NullTemplate, err
 		}
-		return fpath, nil
+		return destination, nil
 	}
-}
-
-func fileModeFromString(perm string) os.FileMode {
-	if len(perm) < 4 {
-		perm = fmt.Sprintf("%04v", perm)
-	}
-	fm := new(os.FileMode)
-	fmt.Sscanf(perm, "%v", fm)
-	return *fm
 }
