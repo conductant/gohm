@@ -279,7 +279,8 @@ func (this *client) WatchOnceChildren(path string, f func(Event)) (chan<- bool, 
 	}
 }
 
-func (this *client) KeepWatch(path string, f func(Event) bool, alerts ...func(error)) (chan<- bool, error) {
+// Continuously watch a path, optional callbacks for errors.
+func (this *client) Watch(path string, f func(Event) bool, alerts ...func(error)) (chan<- bool, error) {
 	if err := this.check(); err != nil {
 		return nil, err
 	}

@@ -61,7 +61,7 @@ func (suite *ClientTests) TestBasicOperations(c *C) {
 		if err == ErrNotExist {
 			x, err := z.CreateNode(k, []byte(data), false)
 			c.Assert(err, Equals, nil)
-			err = x.Get()
+			err = x.Load()
 			c.Assert(err, Equals, nil)
 			c.Assert(string(x.Value), Equals, data)
 		} else {
@@ -190,7 +190,7 @@ func (suite *ClientTests) TestEphemeral(c *C) {
 		top1, err = z1.CreateNode(p, nil, false)
 		c.Assert(err, Equals, nil)
 	}
-	err = top1.Get()
+	err = top1.Load()
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top1)
 
@@ -206,7 +206,7 @@ func (suite *ClientTests) TestEphemeral(c *C) {
 
 	z1.Close() // the ephemeral node /11 should go away
 
-	err = top2.Get()
+	err = top2.Load()
 	c.Log("top2", top2)
 	c.Assert(err, Equals, ErrNotExist)
 
@@ -228,7 +228,7 @@ func (suite *ClientTests) TestWatcher(c *C) {
 		top1, err = z1.CreateNode(p, nil, false)
 		c.Assert(err, Equals, nil)
 	}
-	err = top1.Get()
+	err = top1.Load()
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top1)
 
@@ -244,7 +244,7 @@ func (suite *ClientTests) TestWatcher(c *C) {
 	c.Assert(err, Not(Equals), ErrNotExist)
 	c.Log("z2 sees", top22)
 
-	stop22, err := top22.Watch(func(e Event) {
+	stop22, err := top22.WatchOnce(func(e Event) {
 		if e.State != zk.StateDisconnected {
 			c.Log("Got event :::::", e)
 		}

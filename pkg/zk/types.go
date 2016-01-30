@@ -43,6 +43,6 @@ type Service interface {
 	GetNode(string) (*Node, error)
 	WatchOnce(string, func(Event)) (chan<- bool, error)
 	WatchOnceChildren(string, func(Event)) (chan<- bool, error)
-	KeepWatch(string, func(Event) bool, ...func(error)) (chan<- bool, error)
+	Watch(string, func(Event) bool, ...func(error)) (chan<- bool, error)
 	DeleteNode(string) error
 }

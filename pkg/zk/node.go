@@ -13,7 +13,7 @@ func (this *Node) ValueString() string {
 	return string(this.Value)
 }
 
-func (this *Node) Get() error {
+func (this *Node) Load() error {
 	if err := this.client.check(); err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func (this *Node) Get() error {
 	return nil
 }
 
-func (this *Node) Watch(f func(Event)) (chan<- bool, error) {
+func (this *Node) WatchOnce(f func(Event)) (chan<- bool, error) {
 	if err := this.client.check(); err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (this *Node) Watch(f func(Event)) (chan<- bool, error) {
 	return run_watch(this.Path, f, event_chan)
 }
 
-func (this *Node) WatchChildren(f func(Event)) (chan<- bool, error) {
+func (this *Node) WatchOnceChildren(f func(Event)) (chan<- bool, error) {
 	if err := this.client.check(); err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (this *Node) Set(value []byte) error {
 
 func (this *Node) CountChildren() int32 {
 	if this.Stats == nil {
-		if err := this.Get(); err != nil {
+		if err := this.Load(); err != nil {
 			return -1
 		}
 	}
@@ -87,7 +87,7 @@ func (this *Node) Children() ([]*Node, error) {
 		children := make([]*Node, len(paths))
 		for i, p := range paths {
 			children[i] = &Node{Path: this.Path + "/" + p, client: this.client}
-			if err := children[i].Get(); err != nil {
+			if err := children[i].Load(); err != nil {
 				return nil, err
 			}
 		}
