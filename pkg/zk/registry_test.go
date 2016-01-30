@@ -60,4 +60,8 @@ func (suite *TestSuiteRegistry) TestUsage(c *C) {
 	list, err = zk.List(p)
 	c.Assert(err, IsNil)
 	c.Assert(len(list), Equals, 0)
+
+	exists, err := zk.Exists(p.Sub("child-0"))
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, false)
 }

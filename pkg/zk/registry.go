@@ -25,6 +25,18 @@ func NewService(url url.URL, options ...interface{}) (Registry, error) {
 	return Connect(servers, timeout)
 }
 
+func (this *client) Exists(key Path) (bool, error) {
+	_, err := this.GetNode(key.String())
+	switch err {
+	case ErrNotExist:
+		return false, nil
+	case nil:
+		return true, nil
+	default:
+		return false, err
+	}
+}
+
 func (this *client) Get(key Path) ([]byte, error) {
 	n, err := this.GetNode(key.String())
 	if err != nil {
@@ -54,27 +66,6 @@ func (this *client) Delete(key Path) error {
 }
 
 func (this *client) Put(key Path, value []byte) error {
-	return this.createOrSet(key, value, false)
-}
-
-func (this *client) createOrSet(key Path, value []byte, ephemeral bool) error {
-	if ephemeral {
-		_, err := this.CreateEphemeralNode(key.String(), value)
-		return err
-	}
-	n, err := this.GetNode(key.String())
-	switch {
-	case err == ErrNotExist:
-		n, err = this.CreateNode(key.String(), value)
-		if err != nil {
-			return err
-		}
-	case err != nil:
-		return err
-	}
-	err = n.Set(value)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := this.PutNode(key.String(), value, false)
+	return err
 }

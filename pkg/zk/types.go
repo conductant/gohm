@@ -38,8 +38,8 @@ type Service interface {
 	Reconnect() error
 	Close() error
 	Events() <-chan Event
-	CreateNode(string, []byte) (*Node, error)
-	CreateEphemeralNode(string, []byte) (*Node, error)
+	CreateNode(string, []byte, bool) (*Node, error)
+	PutNode(string, []byte, bool) (*Node, error)
 	GetNode(string) (*Node, error)
 	WatchOnce(string, func(Event)) (chan<- bool, error)
 	WatchOnceChildren(string, func(Event)) (chan<- bool, error)

@@ -47,7 +47,7 @@ func (suite *ClientTests) TestBasicOperations(c *C) {
 	c.Assert(err, Not(Equals), ErrNotConnected)
 
 	if err == ErrNotExist {
-		v, err = z.CreateNode(path, value)
+		v, err = z.CreateNode(path, value, false)
 		c.Assert(err, Equals, nil)
 		c.Assert(v, Not(Equals), nil)
 	}
@@ -59,7 +59,7 @@ func (suite *ClientTests) TestBasicOperations(c *C) {
 
 		x, err := z.GetNode(k)
 		if err == ErrNotExist {
-			x, err := z.CreateNode(k, []byte(data))
+			x, err := z.CreateNode(k, []byte(data), false)
 			c.Assert(err, Equals, nil)
 			err = x.Get()
 			c.Assert(err, Equals, nil)
@@ -73,21 +73,21 @@ func (suite *ClientTests) TestBasicOperations(c *C) {
 	}
 
 	// Get children
-	children, err := v.ChildrenRecursive()
+	children, err := v.SubtreeNodes()
 	c.Assert(err, Equals, nil)
 	for _, n := range children {
 		c.Assert(n.CountChildren(), Equals, int32(0)) // expects leaf nodes
 	}
 
 	// Get the full list of children
-	paths, err := v.ListAllRecursive()
+	paths, err := v.SubtreePaths()
 	c.Assert(err, Equals, nil)
 	for _, p := range paths {
 		_, err := z.GetNode(p)
 		c.Assert(err, Equals, nil)
 	}
 
-	all_children, err := v.ChildrenRecursive()
+	all_children, err := v.SubtreeNodes()
 	c.Assert(err, Equals, nil)
 	for _, n := range all_children {
 		err := n.Delete()
@@ -103,11 +103,11 @@ func (suite *ClientTests) TestFullPathObjects(c *C) {
 
 	top, err := z.GetNode("/unit-test/dir1")
 	if err == ErrNotExist {
-		top, err = z.CreateNode("/unit-test/dir1", nil)
+		top, err = z.CreateNode("/unit-test/dir1", nil, false)
 		c.Assert(err, Equals, nil)
 	}
 	c.Assert(top, Not(Equals), (*Node)(nil))
-	all_children, err := top.ChildrenRecursive()
+	all_children, err := top.SubtreeNodes()
 	c.Assert(err, Equals, nil)
 	for _, n := range all_children {
 		c.Log("Deleting", n.Path)
@@ -117,18 +117,18 @@ func (suite *ClientTests) TestFullPathObjects(c *C) {
 
 	path := "/unit-test/dir1/dir2/dir3"
 	value := []byte(path)
-	v, err := z.CreateNode(path, value)
+	v, err := z.CreateNode(path, value, false)
 	c.Assert(err, Equals, nil)
 	c.Assert(v, Not(Equals), nil)
 
 	for i := 0; i < 5; i++ {
 		k := fmt.Sprintf("/unit-test/dir1/dir2/dir3/dir4/%04d", i)
 		v := fmt.Sprintf("%s", i)
-		_, err := z.CreateNode(k, []byte(v))
+		_, err := z.CreateNode(k, []byte(v), false)
 		c.Assert(err, Equals, nil)
 	}
 	// Get the full list of children
-	paths, err := v.ListAllRecursive()
+	paths, err := v.SubtreePaths()
 	c.Assert(err, Equals, nil)
 	for _, p := range paths {
 		_, err := z.GetNode(p)
@@ -156,7 +156,7 @@ func (suite *ClientTests) TestAppEnvironments(c *C) {
 	}
 
 	for k, v := range expects {
-		_, err = z.CreateNode(k, []byte(v))
+		_, err = z.CreateNode(k, []byte(v), false)
 		c.Log(k, "err", err)
 		//c.Assert(err, Equals, nil)
 	}
@@ -164,13 +164,13 @@ func (suite *ClientTests) TestAppEnvironments(c *C) {
 	integration, err := z.GetNode("/unit-test/environments/integration")
 	c.Assert(err, Equals, nil)
 
-	all, err := integration.FilterChildrenRecursive(func(z *Node) bool {
-		return !z.IsLeaf() // filter out parent nodes
+	all, err := integration.FilterSubtreeNodes(func(z *Node) bool {
+		return !z.Leaf // filter out parent nodes
 	})
 	c.Assert(err, Equals, nil)
 
 	for _, n := range all {
-		c.Log(n.GetBasename(), "=", string(n.Value))
+		c.Log(n.Basename(), "=", n.ValueString())
 	}
 	c.Assert(len(all), Equals, len(expects)) // exactly as the map since we filter out the parent node /database
 
@@ -187,14 +187,14 @@ func (suite *ClientTests) TestEphemeral(c *C) {
 	p := "/unit-test/e1/e2"
 	top1, err := z1.GetNode(p)
 	if err == ErrNotExist {
-		top1, err = z1.CreateNode(p, nil)
+		top1, err = z1.CreateNode(p, nil, false)
 		c.Assert(err, Equals, nil)
 	}
 	err = top1.Get()
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top1)
 
-	top11, err := z1.CreateEphemeralNode(p+"/11", nil)
+	top11, err := z1.CreateNode(p+"/11", nil, true)
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top11)
 
@@ -222,17 +222,17 @@ func (suite *ClientTests) TestWatcher(c *C) {
 	z1, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
-	p := "/unit-test/e1/e2"
+	p := "/unit-test/" + fmt.Sprintf("%d", time.Now().Unix()) + "/e1/e2"
 	top1, err := z1.GetNode(p)
 	if err == ErrNotExist {
-		top1, err = z1.CreateNode(p, nil)
+		top1, err = z1.CreateNode(p, nil, false)
 		c.Assert(err, Equals, nil)
 	}
 	err = top1.Get()
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top1)
 
-	top11, err := z1.CreateEphemeralNode(p+"/11", nil)
+	top11, err := z1.CreateNode(p+"/11", nil, true)
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top11)
 
@@ -264,7 +264,7 @@ func (suite *ClientTests) TestWatcher(c *C) {
 	c.Assert(err, Equals, nil)
 
 	// Create a new node
-	_, err = z1.CreateEphemeralNode(new_path, nil)
+	_, err = z1.CreateNode(new_path, nil, true)
 	c.Assert(err, Equals, nil)
 
 	c.Log("closing z1")

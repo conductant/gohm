@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/samuel/go-zookeeper/zk"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -13,11 +14,11 @@ func Hosts() []string {
 	if len(list) > 0 {
 		servers = strings.Split(list, ",")
 	}
-	glog.Infoln("ZK_HOSTS:", servers)
+	glog.Infoln("zk-hosts:", servers)
 	return servers
 }
 
-func get_targets(path string) []string {
+func listParents(path string) []string {
 	p := path
 	if p[0:1] != "/" {
 		p = "/" + path // Must begin with /
@@ -31,6 +32,26 @@ func get_targets(path string) []string {
 		t = append(t, z)
 	}
 	return t
+}
+
+func (this *client) createParents(path string) error {
+	dir := filepath.Dir(path)
+	if dir == "." {
+		return nil
+	}
+	for _, p := range listParents(dir) {
+		exists, _, err := this.conn.Exists(p)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			_, err := this.createNode(p, []byte{}, false)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func run_watch(path string, f func(Event), event_chan <-chan zk.Event, optionalStop ...chan bool) (chan bool, error) {
@@ -52,7 +73,7 @@ func run_watch(path string, f func(Event), event_chan <-chan zk.Event, optionalS
 			f(Event{Event: event})
 		case b := <-stop:
 			if b {
-				glog.Infoln("Watch terminated:", path)
+				glog.Infoln("watch-terminated:", "path=", path)
 				return
 			}
 		}

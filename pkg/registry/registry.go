@@ -5,12 +5,8 @@ import (
 	"sync"
 )
 
-type ReadOnly interface {
-}
-
 type Registry interface {
-	ReadOnly
-
+	Exists(Path) (bool, error)
 	Get(Path) ([]byte, error)
 	Put(Path, []byte) error
 	Delete(Path) error

@@ -2,21 +2,8 @@ package registry
 
 type Action int
 
-const (
-	ActionCreate Action = iota
-	ActionChange
-	ActionDelete
-	ActionMemberChange
-)
-
-type Event struct {
-	Action Action
-	Path   Path
-	Value  []byte
-}
-
 type Trigger interface {
-	Event() <-chan Event
+	Event() <-chan interface{}
 }
 
 type Delete struct {

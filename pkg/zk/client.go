@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/golang/glog"
 	"github.com/samuel/go-zookeeper/zk"
-	"path/filepath"
 	"time"
 )
 
@@ -37,13 +36,14 @@ func (this *client) on_connect() {
 }
 
 // ephemeral flag here is user requested.
-func (this *client) track_ephemeral(zn *Node, ephemeral bool) {
+func (this *client) trackEphemeral(zn *Node, ephemeral bool) {
 	if ephemeral || (zn.Stats != nil && zn.Stats.EphemeralOwner > 0) {
+		glog.Infoln("ephemeral-add:", "path=", zn.Path)
 		this.ephemeral_add <- zn
 	}
 }
 
-func (this *client) untrack_ephemeral(path string) {
+func (this *client) untrackEphemeral(path string) {
 	this.ephemeral_remove <- path
 }
 
@@ -70,7 +70,7 @@ func Connect(servers []string, timeout time.Duration) (*client, error) {
 
 	go func() {
 		<-zz.shutdown
-		zz.do_shutdown()
+		zz.doShutdown()
 		glog.Infoln("Shutdown complete.")
 	}()
 
@@ -136,7 +136,7 @@ func Connect(servers []string, timeout time.Duration) (*client, error) {
 			select {
 			case r := <-zz.retry:
 				if r != nil {
-					_, err := zz.CreateEphemeralNode(r.Path, r.Value)
+					_, err := zz.CreateNode(r.Path, r.Value, true)
 					switch err {
 					case nil, ErrNodeExists:
 						glog.Infoln("emphemeral-resync: Key=", r.Path, "retry ok.")
@@ -185,7 +185,7 @@ func (this *client) Close() error {
 	return nil
 }
 
-func (this *client) do_shutdown() {
+func (this *client) doShutdown() {
 	glog.Infoln("Shutting down...")
 
 	close(this.ephemeral_add)
@@ -305,7 +305,7 @@ func (this *client) KeepWatch(path string, f func(Event) bool, alerts ...func(er
 
 				more := true
 
-				glog.Infoln("WATCH: State change. Path=", path, "State=", event.State)
+				glog.Infoln("watch-state-change", "path=", path, "state=", event.State)
 				switch event.State {
 				case zk.StateExpired:
 					for _, a := range alerts {
@@ -321,84 +321,50 @@ func (this *client) KeepWatch(path string, f func(Event) bool, alerts ...func(er
 				if more {
 					// Retry loop
 					for {
-						glog.Infoln("WATCH-RETRY: Trying to set watch on", path)
+						glog.Infoln("watch-retry: Trying to set watch on", path)
 						_, _, event_chan, err = this.conn.ExistsW(path)
 						if err == nil {
-							glog.Infoln("WATCH-RETRY: Continue watching", path)
+							glog.Infoln("watch-retry: Continue watching", path)
 							this.events <- Event{Event: zk.Event{Path: path}, Action: "Watch-Retry", Note: "retry ok"}
 							break
 						} else {
-							glog.Warningln("WATCH-RETRY: Error -", path, err)
+							glog.Warningln("watch-retry: Error -", path, err)
 							for _, a := range alerts {
 								a(err)
 							}
 							// Wait a little
 							time.Sleep(1 * time.Second)
-							glog.Infoln("WATCH-RETRY: Finished waiting. Try again to watch", path)
-							this.events <- Event{Event: zk.Event{Path: path}, Action: "Watch-Retry", Note: "retrying"}
+							glog.Infoln("watch-retry: Finished waiting. Try again to watch", path)
+							this.events <- Event{Event: zk.Event{Path: path}, Action: "watch-retry", Note: "retrying"}
 						}
 					}
 				}
 
 			case <-stop:
-				glog.Infoln("WATCH: Watch terminated:", path)
+				glog.Infoln("watch: Watch terminated:", "path=", path)
 				return
 			}
 		}
 	}()
-	glog.Infoln("WATCH: Started watch on", path)
+	glog.Infoln("watch: Started watch on", "path=", path)
 	return stop, nil
 }
 
-func (this *client) CreateNode(path string, value []byte) (*Node, error) {
+// Creates a new node.  If node already exists, error will be returned.
+func (this *client) CreateNode(path string, value []byte, ephemeral bool) (*Node, error) {
 	if err := this.check(); err != nil {
 		return nil, err
 	}
-	if err := this.build_parents(path); err != nil {
+	// Make sure all parents exist
+	err := this.createParents(path)
+	if err != nil {
 		return nil, err
 	}
-	return this.create(path, value, false)
+	return this.createNode(path, value, ephemeral)
 }
 
-func (this *client) CreateEphemeralNode(path string, value []byte) (*Node, error) {
-	if err := this.check(); err != nil {
-		return nil, err
-	}
-	if err := this.build_parents(path); err != nil {
-		return nil, err
-	}
-	return this.create(path, value, true)
-}
-
-func (this *client) DeleteNode(path string) error {
-	if err := this.check(); err != nil {
-		return err
-	}
-	this.untrack_ephemeral(path)
-	return this.conn.Delete(path, -1)
-}
-
-func (this *client) build_parents(path string) error {
-	dir := filepath.Dir(path)
-	if dir == "." {
-		return nil
-	}
-	for _, p := range get_targets(dir) {
-		exists, _, err := this.conn.Exists(p)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			_, err := this.create(p, []byte{}, false)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (this *client) create(path string, value []byte, ephemeral bool) (*Node, error) {
+// Assumes all parent nodes have been created.
+func (this *client) createNode(path string, value []byte, ephemeral bool) (*Node, error) {
 	key := path
 	flags := int32(0)
 	if ephemeral {
@@ -409,11 +375,37 @@ func (this *client) create(path string, value []byte, ephemeral bool) (*Node, er
 	if err != nil {
 		return nil, err
 	}
-	if ephemeral {
-		glog.Infoln("EPHEMERAL: created Path=", key, "Value=", string(value))
-	}
 	zn := &Node{Path: p, Value: value, client: this}
-	this.track_ephemeral(zn, ephemeral)
-
+	this.trackEphemeral(zn, ephemeral)
 	return this.GetNode(p)
+}
+
+// Sets the node value, creates if not exists.
+func (this *client) PutNode(key string, value []byte, ephemeral bool) (*Node, error) {
+	if ephemeral {
+		n, err := this.CreateNode(key, value, true)
+		return n, err
+	}
+	n, err := this.GetNode(key)
+	switch err {
+	case nil:
+		return n, n.Set(value)
+	case ErrNotExist:
+		n, err = this.CreateNode(key, value, false)
+		if err != nil {
+			return nil, err
+		} else {
+			return n, n.Set(value)
+		}
+	default:
+		return nil, err
+	}
+}
+
+func (this *client) DeleteNode(path string) error {
+	if err := this.check(); err != nil {
+		return err
+	}
+	this.untrackEphemeral(path)
+	return this.conn.Delete(path, -1)
 }
