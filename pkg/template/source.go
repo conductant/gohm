@@ -5,7 +5,7 @@ import (
 	"golang.org/x/net/context"
 	"io/ioutil"
 	"net/http"
-	"net/url"
+	net "net/url"
 	"os"
 	"strings"
 )
@@ -29,17 +29,15 @@ func Register(protocol string, source SourceFunc) {
 	protocols[protocol] = source
 }
 
-func Source(ctx context.Context, uri string) ([]byte, error) {
-	parsed, err := url.Parse(uri)
+func Source(ctx context.Context, url string) ([]byte, error) {
+	parsed, err := net.Parse(url)
 	if err != nil {
 		return nil, err
 	}
-	url := parsed.String()
-	protocol := url[0:strings.Index(url, "://")]
-	if source, exists := protocols[protocol]; exists {
-		return source(ctx, uri)
+	if source, exists := protocols[parsed.Scheme]; exists {
+		return source(ctx, url)
 	}
-	return nil, ErrNotSupported(protocol)
+	return nil, &NotSupported{parsed.Scheme}
 }
 
 type httpHeaderContextKey int

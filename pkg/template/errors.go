@@ -2,6 +2,7 @@ package template
 
 import (
 	"errors"
+	"fmt"
 )
 
 var (
@@ -9,6 +10,10 @@ var (
 	ErrBadTemplateFunc     = errors.New("err-bad-template-func")
 )
 
-func ErrNotSupported(protocol string) error {
-	return errors.New("not-supported-" + protocol)
+type NotSupported struct {
+	Protocol string
+}
+
+func (this *NotSupported) Error() string {
+	return fmt.Sprintf("not-supported: %s", this.Protocol)
 }
