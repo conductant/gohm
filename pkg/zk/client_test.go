@@ -232,6 +232,11 @@ func (suite *ClientTests) TestWatcher(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top1)
 
+	id := top1.Id()
+	id2 := z1.Id()
+	c.Log("id=", id.String(), "id2=", id2.String())
+	c.Assert(id.String(), Not(Equals), id2.String())
+
 	top11, err := z1.CreateNode(p+"/11", nil, true)
 	c.Assert(err, Equals, nil)
 	c.Log("top1", top11)

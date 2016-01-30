@@ -1,9 +1,16 @@
 package zk
 
 import (
+	"net/url"
 	"path/filepath"
 	"strconv"
 )
+
+func (this *Node) Id() url.URL {
+	copy := this.client.Id()
+	copy.Path = this.Path
+	return copy
+}
 
 func (this *Node) Basename() string {
 	return filepath.Base(this.Path)
@@ -36,7 +43,7 @@ func (this *Node) WatchOnce(f func(Event)) (chan<- bool, error) {
 	}
 	this.Value = value
 	this.Stats = stat
-	return run_watch(this.Path, f, event_chan)
+	return runWatch(this.Path, f, event_chan)
 }
 
 func (this *Node) WatchOnceChildren(f func(Event)) (chan<- bool, error) {
@@ -49,7 +56,7 @@ func (this *Node) WatchOnceChildren(f func(Event)) (chan<- bool, error) {
 	}
 	this.Members = members
 	this.Stats = stat
-	return run_watch(this.Path, f, event_chan)
+	return runWatch(this.Path, f, event_chan)
 }
 
 func (this *Node) Set(value []byte) error {

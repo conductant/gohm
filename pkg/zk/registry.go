@@ -2,9 +2,9 @@ package zk
 
 import (
 	. "github.com/conductant/gohm/pkg/registry"
+	"golang.org/x/net/context"
 	"net/url"
 	"strings"
-	"time"
 )
 
 func init() {
@@ -12,17 +12,15 @@ func init() {
 }
 
 // Optional parameter is timeout, in Duration.
-func NewService(url url.URL, options ...interface{}) (Registry, error) {
+func NewService(ctx context.Context, url url.URL) (Registry, error) {
 	// Look for a duration and use that as the timeout
-	timeout := DefaultTimeout
-	for _, opt := range options {
-		if t, ok := opt.(time.Duration); ok {
-			timeout = t
-			break
-		}
-	}
+	timeout := ContextGetTimeout(ctx)
 	servers := strings.Split(url.Host, ",") // host:port,host:port,...
 	return Connect(servers, timeout)
+}
+
+func (this *client) Id() url.URL {
+	return this.url
 }
 
 func (this *client) Exists(key Path) (bool, error) {
@@ -65,7 +63,7 @@ func (this *client) Delete(key Path) error {
 	return this.DeleteNode(key.String())
 }
 
-func (this *client) Put(key Path, value []byte) error {
-	_, err := this.PutNode(key.String(), value, false)
+func (this *client) Put(key Path, value []byte, ephemeral bool) error {
+	_, err := this.PutNode(key.String(), value, ephemeral)
 	return err
 }

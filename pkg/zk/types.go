@@ -2,6 +2,7 @@ package zk
 
 import (
 	"github.com/samuel/go-zookeeper/zk"
+	"io"
 	"time"
 )
 
@@ -35,14 +36,15 @@ type Event struct {
 }
 
 type Service interface {
+	io.Closer
+
 	Reconnect() error
-	Close() error
 	Events() <-chan Event
 	CreateNode(string, []byte, bool) (*Node, error)
 	PutNode(string, []byte, bool) (*Node, error)
 	GetNode(string) (*Node, error)
+	DeleteNode(string) error
 	WatchOnce(string, func(Event)) (chan<- bool, error)
 	WatchOnceChildren(string, func(Event)) (chan<- bool, error)
 	Watch(string, func(Event) bool, ...func(error)) (chan<- bool, error)
-	DeleteNode(string) error
 }
