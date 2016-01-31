@@ -17,6 +17,11 @@ const (
 	StateConnected         = zk.StateConnected
 	StateHasSession        = zk.StateHasSession
 
+	EventNodeCreated         = zk.EventNodeCreated
+	EventNodeDataChanged     = zk.EventNodeDataChanged
+	EventNodeDeleted         = zk.EventNodeDeleted
+	EventNodeChildrenChanged = zk.EventNodeChildrenChanged
+
 	DefaultTimeout = 1 * time.Hour
 )
 

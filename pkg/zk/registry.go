@@ -67,3 +67,60 @@ func (this *client) Put(key Path, value []byte, ephemeral bool) error {
 	_, err := this.PutNode(key.String(), value, ephemeral)
 	return err
 }
+
+func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {
+	stop := make(chan int)
+	events := make(chan interface{})
+
+	var cStop chan<- bool
+	var err error
+	switch t := t.(type) {
+	case Create:
+		cStop, err = this.Watch(t.Path.String(),
+			func(e Event) {
+				if e.Type == EventNodeCreated {
+					events <- e
+				}
+			})
+		if err != nil {
+			return nil, nil, err
+		}
+	case Change:
+		cStop, err = this.Watch(t.Path.String(),
+			func(e Event) {
+				if e.Type == EventNodeDataChanged {
+					events <- e
+				}
+			})
+		if err != nil {
+			return nil, nil, err
+		}
+	case Delete:
+		cStop, err = this.Watch(t.Path.String(),
+			func(e Event) {
+				if e.Type == EventNodeDeleted {
+					events <- e
+				}
+			})
+		if err != nil {
+			return nil, nil, err
+		}
+	case Members:
+		// TODO - Implement the matching criteria using min/max/delta, etc.
+		cStop, err = this.WatchChildren(t.Path.String(),
+			func(e Event) {
+				if e.Type == EventNodeChildrenChanged {
+					events <- e
+				}
+			})
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	go func() {
+		// Stop the watch
+		<-stop
+		cStop <- true
+	}()
+	return events, stop, nil
+}

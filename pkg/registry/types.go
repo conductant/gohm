@@ -13,4 +13,5 @@ type Registry interface {
 	Put(Path, []byte, bool) error // Create or set.
 	Delete(Path) error
 	List(Path) ([]Path, error)
+	Trigger(Trigger) (<-chan interface{}, chan<- int, error) // events channel, channel to stop, error
 }
