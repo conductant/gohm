@@ -341,7 +341,7 @@ func (this *client) watch(cf getChan, path string, f func(Event), alerts ...func
 						a(ErrConnectionClosed)
 					}
 				default:
-					go f(Event{Event: event})
+					f(Event{Event: event})
 				}
 
 				for { // Retry loop

@@ -70,7 +70,7 @@ func (this *client) Put(key Path, value []byte, ephemeral bool) error {
 
 func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {
 	stop := make(chan int)
-	events := make(chan interface{})
+	events := make(chan interface{}, 512)
 
 	var cStop chan<- bool
 	var err error

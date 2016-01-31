@@ -275,7 +275,7 @@ func (suite *ClientTests) TestNodeWatch(c *C) {
 	c.Log("closing z1")
 	z1.Close() // the ephemeral node /11 should go away
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 	c.Log("sending stop")
 	stop22 <- true
 	stop23 <- true
@@ -305,20 +305,20 @@ func (suite *ClientTests) TestWatchContinuous(c *C) {
 	c.Assert(err, IsNil)
 
 	// Note that there is a race between re-subscribing to the updates.
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	c.Assert(*count, Equals, 2) // First operation has a create and a change.
 
 	_, err = z2.PutNode(p, []byte{3}, false)
 	c.Assert(err, IsNil)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	c.Assert(*count, Equals, 3) // one more change
 
 	err = z2.DeleteNode(p)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	stop1 <- true
 
@@ -349,34 +349,34 @@ func (suite *ClientTests) TestWatchChildrenContinuous(c *C) {
 	c.Assert(err, IsNil)
 
 	// Note that there is a race between re-subscribing to the updates.
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	c.Assert(*count, Equals, 0)
 
 	_, err = z2.PutNode(p+"/1", []byte{3}, false)
 	c.Assert(err, IsNil)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	c.Assert(*count, Equals, 1)
 
 	_, err = z2.PutNode(p+"/2", []byte{3}, false)
 	c.Assert(err, IsNil)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	c.Assert(*count, Equals, 2)
 
 	_, err = z2.PutNode(p+"/1", []byte{3}, false)
 	c.Assert(err, IsNil)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	c.Assert(*count, Equals, 2) // Total count of children remains 2 after 1 mutation
 
 	err = z2.DeleteNode(p + "/1")
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(delay)
 
 	stop1 <- true
 

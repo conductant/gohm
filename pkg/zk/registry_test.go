@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var delay = 1000 * time.Millisecond
+
 func TestRegistry(t *testing.T) { TestingT(t) }
 
 type TestSuiteRegistry struct{}
@@ -121,4 +123,152 @@ func (suite *TestSuiteRegistry) TestFollow(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(value, DeepEquals, []byte("end"))
 	c.Assert(path.String(), Equals, url+p.Sub("4").String())
+}
+
+func (suite *TestSuiteRegistry) TestTriggerCreate(c *C) {
+	ctx := ContextPutTimeout(context.Background(), 1*time.Minute)
+	url := "zk://" + strings.Join(Hosts(), ",")
+	zk, err := registry.Dial(ctx, url)
+	c.Assert(err, IsNil)
+	c.Log(zk)
+
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+
+	created, stop, err := zk.Trigger(registry.Create{Path: p})
+	c.Assert(err, IsNil)
+
+	count := new(int)
+	go func() {
+		e := <-created
+		*count++
+		c.Log("**** Got event:", e, " count=", *count)
+	}()
+
+	err = zk.Put(p, []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	stop <- 1
+
+	time.Sleep(delay)
+	c.Assert(*count, Equals, 1)
+}
+
+func (suite *TestSuiteRegistry) TestTriggerDelete(c *C) {
+	ctx := ContextPutTimeout(context.Background(), 1*time.Minute)
+	url := "zk://" + strings.Join(Hosts(), ",")
+	zk, err := registry.Dial(ctx, url)
+	c.Assert(err, IsNil)
+	c.Log(zk)
+
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+
+	deleted, stop, err := zk.Trigger(registry.Delete{Path: p})
+	c.Assert(err, IsNil)
+
+	count := new(int)
+	go func() {
+		e := <-deleted
+		*count++
+		c.Log("**** Got event:", e, " count=", *count)
+	}()
+
+	err = zk.Put(p, []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	err = zk.Delete(p)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	stop <- 1
+	c.Assert(*count, Equals, 1)
+}
+
+func (suite *TestSuiteRegistry) TestTriggerChange(c *C) {
+	ctx := ContextPutTimeout(context.Background(), 1*time.Minute)
+	url := "zk://" + strings.Join(Hosts(), ",")
+	zk, err := registry.Dial(ctx, url)
+	c.Assert(err, IsNil)
+	c.Log(zk)
+
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+
+	changed, stop, err := zk.Trigger(registry.Change{Path: p})
+	c.Assert(err, IsNil)
+
+	count := new(int)
+	go func() {
+		for {
+			e := <-changed
+			*count++
+			c.Log("**** Got event:", e, " count=", *count)
+		}
+	}()
+
+	err = zk.Put(p, []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	err = zk.Put(p, []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	stop <- 1
+
+	time.Sleep(delay)
+
+	c.Assert(*count, Equals, 2)
+}
+
+func (suite *TestSuiteRegistry) TestTriggerMembers(c *C) {
+	ctx := ContextPutTimeout(context.Background(), 1*time.Minute)
+	url := "zk://" + strings.Join(Hosts(), ",")
+	zk, err := registry.Dial(ctx, url)
+	c.Assert(err, IsNil)
+	c.Log(zk)
+
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+
+	err = zk.Put(p, []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	members, stop, err := zk.Trigger(registry.Members{Path: p})
+	c.Assert(err, IsNil)
+
+	count := new(int)
+	go func() {
+		for {
+			e := <-members
+			*count++
+			c.Log("**** Got event:", e, " count=", *count)
+		}
+	}()
+
+	err = zk.Put(p.Sub("1"), []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	err = zk.Put(p.Sub("2"), []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	err = zk.Put(p.Sub("3"), []byte{1}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+
+	err = zk.Delete(p.Sub("3"))
+	c.Assert(err, IsNil)
+
+	time.Sleep(delay)
+	stop <- 1
+	c.Assert(*count, Equals, 4)
 }
