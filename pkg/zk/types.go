@@ -47,4 +47,5 @@ type Service interface {
 	WatchOnce(string, func(Event)) (chan<- bool, error)
 	WatchOnceChildren(string, func(Event)) (chan<- bool, error)
 	Watch(string, func(Event) bool, ...func(error)) (chan<- bool, error)
+	WatchChildren(string, func(Event) bool, ...func(error)) (chan<- bool, error)
 }

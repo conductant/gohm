@@ -286,7 +286,25 @@ func (this *client) WatchOnceChildren(path string, f func(Event)) (chan<- bool, 
 }
 
 // Continuously watch a path, optional callbacks for errors.
-func (this *client) Watch(path string, f func(Event) bool, alerts ...func(error)) (chan<- bool, error) {
+func (this *client) Watch(path string, f func(Event), alerts ...func(error)) (chan<- bool, error) {
+	return this.watch(func() (<-chan zk.Event, error) {
+		_, _, ch, err := this.conn.ExistsW(path)
+		return ch, err
+	}, path, f, alerts...)
+}
+
+// Watch the children under a path. Only a change in the count of children will result in an event.
+// A mutation on the value of a child will not trigger an event.  A creation or deletion of a child node will.
+func (this *client) WatchChildren(path string, f func(Event), alerts ...func(error)) (chan<- bool, error) {
+	return this.watch(func() (<-chan zk.Event, error) {
+		_, _, ch, err := this.conn.ChildrenW(path)
+		return ch, err
+	}, path, f, alerts...)
+}
+
+type getChan func() (<-chan zk.Event, error)
+
+func (this *client) watch(cf getChan, path string, f func(Event), alerts ...func(error)) (chan<- bool, error) {
 	if err := this.check(); err != nil {
 		return nil, err
 	}
@@ -294,7 +312,7 @@ func (this *client) Watch(path string, f func(Event) bool, alerts ...func(error)
 		return nil, errors.New("error-nil-watcher")
 	}
 
-	_, _, event_chan, err := this.conn.ExistsW(path)
+	event_chan, err := cf()
 	if err != nil {
 		go func() {
 			for _, a := range alerts {
@@ -303,14 +321,14 @@ func (this *client) Watch(path string, f func(Event) bool, alerts ...func(error)
 		}()
 		return nil, err
 	}
+
 	stop := make(chan bool)
 	this.watch_stops_chan <- stop
 	go func() {
+		glog.Infoln("watch: Started watch on", "path=", path)
 		for {
 			select {
 			case event := <-event_chan:
-
-				more := true
 
 				glog.Infoln("watch-state-change", "path=", path, "state=", event.State)
 				switch event.State {
@@ -323,27 +341,28 @@ func (this *client) Watch(path string, f func(Event) bool, alerts ...func(error)
 						a(ErrConnectionClosed)
 					}
 				default:
-					more = f(Event{Event: event})
+					go f(Event{Event: event})
 				}
-				if more {
-					// Retry loop
-					for {
-						glog.Infoln("watch-retry: Trying to set watch on", path)
-						_, _, event_chan, err = this.conn.ExistsW(path)
-						if err == nil {
-							glog.Infoln("watch-retry: Continue watching", path)
-							this.events <- Event{Event: zk.Event{Path: path}, Action: "Watch-Retry", Note: "retry ok"}
-							break
-						} else {
-							glog.Warningln("watch-retry: Error -", path, err)
-							for _, a := range alerts {
-								a(err)
-							}
-							// Wait a little
-							time.Sleep(1 * time.Second)
-							glog.Infoln("watch-retry: Finished waiting. Try again to watch", path)
-							this.events <- Event{Event: zk.Event{Path: path}, Action: "watch-retry", Note: "retrying"}
+
+				for { // Retry loop
+					success := false
+					event_chan, err = cf()
+					if err == nil {
+						success = true
+						this.events <- Event{Event: zk.Event{Path: path}, Action: "Watch-Retry", Note: "retry ok"}
+						glog.Infoln("watch-retry: Continue watching", path)
+					}
+					if success {
+						break
+					} else {
+						glog.Warningln("watch-retry: Error -", path, err)
+						for _, a := range alerts {
+							a(err)
 						}
+						// Wait a little
+						time.Sleep(1 * time.Second)
+						glog.Infoln("watch-retry: Finished waiting. Try again to watch", path)
+						this.events <- Event{Event: zk.Event{Path: path}, Action: "watch-retry", Note: "retrying"}
 					}
 				}
 
@@ -353,7 +372,6 @@ func (this *client) Watch(path string, f func(Event) bool, alerts ...func(error)
 			}
 		}
 	}()
-	glog.Infoln("watch: Started watch on", "path=", path)
 	return stop, nil
 }
 

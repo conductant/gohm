@@ -218,7 +218,7 @@ func (suite *ClientTests) TestEphemeral(c *C) {
 	z2.Close()
 }
 
-func (suite *ClientTests) TestWatcher(c *C) {
+func (suite *ClientTests) TestNodeWatch(c *C) {
 	z1, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
@@ -280,4 +280,105 @@ func (suite *ClientTests) TestWatcher(c *C) {
 	stop22 <- true
 	stop23 <- true
 	c.Log("stop sent")
+}
+
+func (suite *ClientTests) TestWatchContinuous(c *C) {
+	z1, err := Connect(Hosts(), time.Second)
+	c.Assert(err, Equals, nil)
+
+	p := "/unit-test/" + fmt.Sprintf("%d", time.Now().Unix()) + "/e1/e2"
+
+	count := new(int)
+	stop1, err := z1.Watch(p, func(e Event) {
+		*count++
+		c.Log(">>>>>> event=", e, "count=", *count)
+	})
+
+	c.Log("stop1=", stop1)
+	c.Assert(err, IsNil)
+
+	// Changes by another client
+	z2, err := Connect(Hosts(), time.Second)
+	c.Assert(err, Equals, nil)
+
+	_, err = z2.PutNode(p, []byte{2}, false)
+	c.Assert(err, IsNil)
+
+	// Note that there is a race between re-subscribing to the updates.
+	time.Sleep(1 * time.Second)
+
+	c.Assert(*count, Equals, 2) // First operation has a create and a change.
+
+	_, err = z2.PutNode(p, []byte{3}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(1 * time.Second)
+
+	c.Assert(*count, Equals, 3) // one more change
+
+	err = z2.DeleteNode(p)
+
+	time.Sleep(1 * time.Second)
+
+	stop1 <- true
+
+	c.Assert(*count, Equals, 3+1) // 1 create + 3 changes
+}
+
+func (suite *ClientTests) TestWatchChildrenContinuous(c *C) {
+	z1, err := Connect(Hosts(), time.Second)
+	c.Assert(err, Equals, nil)
+
+	p := "/unit-test/" + fmt.Sprintf("%d", time.Now().Unix()) + "/e1/e3"
+
+	// Changes by another client
+	z2, err := Connect(Hosts(), time.Second)
+	c.Assert(err, Equals, nil)
+
+	_, err = z2.PutNode(p, []byte{2}, false)
+	c.Assert(err, IsNil)
+
+	// Now we watch once the node is created.
+	count := new(int)
+	stop1, err := z1.WatchChildren(p, func(e Event) {
+		*count++
+		c.Log("++++++ event=", e, "count=", *count)
+	})
+
+	c.Log("stop1=", stop1)
+	c.Assert(err, IsNil)
+
+	// Note that there is a race between re-subscribing to the updates.
+	time.Sleep(1 * time.Second)
+
+	c.Assert(*count, Equals, 0)
+
+	_, err = z2.PutNode(p+"/1", []byte{3}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(1 * time.Second)
+
+	c.Assert(*count, Equals, 1)
+
+	_, err = z2.PutNode(p+"/2", []byte{3}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(1 * time.Second)
+
+	c.Assert(*count, Equals, 2)
+
+	_, err = z2.PutNode(p+"/1", []byte{3}, false)
+	c.Assert(err, IsNil)
+
+	time.Sleep(1 * time.Second)
+
+	c.Assert(*count, Equals, 2) // Total count of children remains 2 after 1 mutation
+
+	err = z2.DeleteNode(p + "/1")
+
+	time.Sleep(1 * time.Second)
+
+	stop1 <- true
+
+	c.Assert(*count, Equals, 3) // 1 create + 3 changes
 }

@@ -2,21 +2,10 @@ package registry
 
 import (
 	"golang.org/x/net/context"
-	"io"
 	net "net/url"
 	"strings"
 	"sync"
 )
-
-type Registry interface {
-	io.Closer
-	Id() net.URL
-	Exists(Path) (bool, error)
-	Get(Path) ([]byte, error)
-	Put(Path, []byte, bool) error // Create or set.
-	Delete(Path) error
-	List(Path) ([]Path, error)
-}
 
 type Implementation func(ctx context.Context, url net.URL) (Registry, error)
 
