@@ -36,12 +36,12 @@ func (this *client) Exists(key Path) (bool, error) {
 	}
 }
 
-func (this *client) Get(key Path) ([]byte, error) {
+func (this *client) Get(key Path) ([]byte, Version, error) {
 	n, err := this.GetNode(key.String())
 	if err != nil {
-		return nil, err
+		return nil, InvalidVersion, err
 	}
-	return n.Value, nil
+	return n.Value, Version(n.Version()), nil
 }
 
 func (this *client) List(key Path) ([]Path, error) {
@@ -64,9 +64,25 @@ func (this *client) Delete(key Path) error {
 	return this.DeleteNode(key.String())
 }
 
-func (this *client) Put(key Path, value []byte, ephemeral bool) error {
-	_, err := this.PutNode(key.String(), value, ephemeral)
-	return err
+func (this *client) DeleteVersion(key Path, version Version) error {
+	return this.conn.Delete(key.String(), int32(version))
+}
+
+func (this *client) Put(key Path, value []byte, ephemeral bool) (Version, error) {
+	n, err := this.PutNode(key.String(), value, ephemeral)
+	if err != nil {
+		return InvalidVersion, err
+	}
+	return Version(n.Version()), nil
+}
+
+func (this *client) PutVersion(key Path, value []byte, version Version) (Version, error) {
+	stat, err := this.conn.Set(key.String(), value, int32(version))
+	if err != nil {
+		return InvalidVersion, err
+	} else {
+		return Version(stat.Version), nil
+	}
 }
 
 func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {

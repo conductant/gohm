@@ -33,15 +33,15 @@ func (suite *TestSuiteRegistry) TestUsage(c *C) {
 
 	p := registry.NewPath("/unit-test/registry/test")
 	v := []byte("test")
-	err = zk.Put(p, v, false)
+	_, err = zk.Put(p, v, false)
 	c.Assert(err, IsNil)
-	read, err := zk.Get(p)
+	read, _, err := zk.Get(p)
 	c.Assert(read, DeepEquals, v)
 
 	check := map[registry.Path]int{}
 	for i := 0; i < 10; i++ {
 		cp := p.Sub(fmt.Sprintf("child-%d", i))
-		err = zk.Put(cp, []byte{0}, false)
+		_, err = zk.Put(cp, []byte{0}, false)
 		c.Assert(err, IsNil)
 		check[cp] = i
 	}
@@ -79,9 +79,9 @@ func (suite *TestSuiteRegistry) TestEphemeral(c *C) {
 
 	p := registry.NewPath("/unit-test/registry/ephemeral")
 	v := []byte("test")
-	err = zk.Put(p, v, true)
+	_, err = zk.Put(p, v, true)
 	c.Assert(err, IsNil)
-	read, err := zk.Get(p)
+	read, _, err := zk.Get(p)
 	c.Assert(read, DeepEquals, v)
 	exists, _ := zk.Exists(p)
 	c.Assert(exists, Equals, true)
@@ -92,10 +92,50 @@ func (suite *TestSuiteRegistry) TestEphemeral(c *C) {
 	// reconnect
 	zk, err = registry.Dial(ctx, url)
 	c.Assert(err, IsNil)
-	_, err = zk.Get(p)
+	_, _, err = zk.Get(p)
 	c.Assert(err, Equals, ErrNotExist)
 	exists, _ = zk.Exists(p)
 	c.Assert(exists, Equals, false)
+}
+
+func (suite *TestSuiteRegistry) TestVersions(c *C) {
+	ctx := ContextPutTimeout(context.Background(), 1*time.Minute)
+	url := "zk://" + strings.Join(Hosts(), ",")
+	zk, err := registry.Dial(ctx, url)
+	c.Assert(err, IsNil)
+	c.Log(zk)
+
+	p := registry.NewPath("/unit-test/registry/version")
+	v := []byte("test")
+	version, err := zk.Put(p, v, true)
+	c.Assert(err, IsNil)
+	c.Assert(version, Not(Equals), registry.InvalidVersion)
+
+	read, version2, err := zk.Get(p)
+	c.Assert(read, DeepEquals, v)
+	c.Assert(version, Equals, version2)
+
+	// try to update with version
+	version3, err := zk.PutVersion(p, []byte{1}, version2)
+	c.Assert(err, IsNil)
+	c.Assert(version3 > version2, Equals, true)
+
+	// now try to delete with outdated version number
+	err = zk.DeleteVersion(p, version)
+	c.Assert(err, Equals, ErrBadVersion)
+
+	// read again
+	cv, version4, err := zk.Get(p)
+	c.Assert(err, IsNil)
+	c.Assert(version4, Equals, version3)
+	c.Assert(cv, DeepEquals, []byte{1})
+
+	// delete again
+	err = zk.DeleteVersion(p, version4)
+	c.Assert(err, IsNil)
+
+	_, _, err = zk.Get(p)
+	c.Assert(err, Equals, ErrNotExist)
 }
 
 func (suite *TestSuiteRegistry) TestFollow(c *C) {
@@ -107,22 +147,23 @@ func (suite *TestSuiteRegistry) TestFollow(c *C) {
 
 	p := registry.NewPath("/unit-test/registry/follow")
 
-	err = zk.Put(p.Sub("1"), []byte(url+p.Sub("2").String()), false)
+	_, err = zk.Put(p.Sub("1"), []byte(url+p.Sub("2").String()), false)
 	c.Assert(err, IsNil)
 
-	err = zk.Put(p.Sub("2"), []byte(url+p.Sub("3").String()), false)
+	_, err = zk.Put(p.Sub("2"), []byte(url+p.Sub("3").String()), false)
 	c.Assert(err, IsNil)
 
-	err = zk.Put(p.Sub("3"), []byte(url+p.Sub("4").String()), false)
+	_, err = zk.Put(p.Sub("3"), []byte(url+p.Sub("4").String()), false)
 	c.Assert(err, IsNil)
 
-	err = zk.Put(p.Sub("4"), []byte("end"), false)
+	_, err = zk.Put(p.Sub("4"), []byte("end"), false)
 	c.Assert(err, IsNil)
 
-	path, value, err := registry.Follow(ctx, zk, p.Sub("1"))
+	path, value, version, err := registry.Follow(ctx, zk, p.Sub("1"))
 	c.Assert(err, IsNil)
 	c.Assert(value, DeepEquals, []byte("end"))
 	c.Assert(path.String(), Equals, url+p.Sub("4").String())
+	c.Assert(version > 0, Equals, true)
 }
 
 func (suite *TestSuiteRegistry) TestTriggerCreate(c *C) {
@@ -151,7 +192,7 @@ func (suite *TestSuiteRegistry) TestTriggerCreate(c *C) {
 		}
 	}()
 
-	err = zk.Put(p, []byte{1}, false)
+	_, err = zk.Put(p, []byte{1}, false)
 	c.Assert(err, IsNil)
 
 	time.Sleep(delay)
@@ -184,7 +225,7 @@ func (suite *TestSuiteRegistry) TestTriggerDelete(c *C) {
 		c.Log("**** Got event:", e, " count=", *count)
 	}()
 
-	err = zk.Put(p, []byte{1}, false)
+	_, err = zk.Put(p, []byte{1}, false)
 	c.Assert(err, IsNil)
 
 	time.Sleep(delay)
@@ -224,25 +265,25 @@ func (suite *TestSuiteRegistry) TestTriggerChange(c *C) {
 		}
 	}()
 
-	err = zk.Put(p, []byte{1}, false)
+	_, err = zk.Put(p, []byte{1}, false)
 	c.Assert(err, IsNil)
 	c.Log("*** create")
 
 	time.Sleep(delay)
 
-	err = zk.Put(p, []byte{2}, false)
+	_, err = zk.Put(p, []byte{2}, false)
 	c.Assert(err, IsNil)
 	c.Log("*** change")
 
 	time.Sleep(delay)
 
-	err = zk.Put(p, []byte{3}, false)
+	_, err = zk.Put(p, []byte{3}, false)
 	c.Assert(err, IsNil)
 	c.Log("*** change")
 
 	time.Sleep(delay)
 
-	err = zk.Put(p, []byte{4}, false)
+	_, err = zk.Put(p, []byte{4}, false)
 	c.Assert(err, IsNil)
 	c.Log("*** change")
 
@@ -268,7 +309,7 @@ func (suite *TestSuiteRegistry) TestTriggerMembers(c *C) {
 
 	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger/members", time.Now().Unix()))
 
-	err = zk.Put(p, []byte{1}, false)
+	_, err = zk.Put(p, []byte{1}, false)
 	c.Assert(err, IsNil)
 
 	time.Sleep(delay)
@@ -285,17 +326,17 @@ func (suite *TestSuiteRegistry) TestTriggerMembers(c *C) {
 		}
 	}()
 
-	err = zk.Put(p.Sub("1"), []byte{1}, false)
+	_, err = zk.Put(p.Sub("1"), []byte{1}, false)
 	c.Assert(err, IsNil)
 
 	time.Sleep(delay)
 
-	err = zk.Put(p.Sub("2"), []byte{1}, false)
+	_, err = zk.Put(p.Sub("2"), []byte{1}, false)
 	c.Assert(err, IsNil)
 
 	time.Sleep(delay)
 
-	err = zk.Put(p.Sub("3"), []byte{1}, false)
+	_, err = zk.Put(p.Sub("3"), []byte{1}, false)
 	c.Assert(err, IsNil)
 
 	time.Sleep(delay)

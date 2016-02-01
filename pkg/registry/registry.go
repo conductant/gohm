@@ -42,38 +42,38 @@ func Dial(ctx context.Context, url string) (Registry, error) {
 // traverses symlinks where the value of a node is a pointer url to another registry node
 // It's possible that the pointer points to a different registry.
 // The returned url includes protocol and host information
-func FollowUrl(ctx context.Context, url net.URL) (net.URL, []byte, error) {
+func FollowUrl(ctx context.Context, url net.URL) (net.URL, []byte, Version, error) {
 	reg, err := Dial(ctx, url.String())
 	if err != nil {
-		return url, nil, err
+		return url, nil, InvalidVersion, err
 	}
 	return Follow(ctx, reg, NewPath(url.Path))
 }
 
 // Traverses symlinks where the value of a node is a pointer url to another registry node
 // It's possible that the pointer points to a different registry.
-func Follow(ctx context.Context, reg Registry, path Path) (net.URL, []byte, error) {
+func Follow(ctx context.Context, reg Registry, path Path) (net.URL, []byte, Version, error) {
 	here := reg.Id()
 	here.Path = path.String()
 	if len(path.String()) == 0 {
-		return here, nil, nil
+		return here, nil, InvalidVersion, nil
 	}
-	v, err := reg.Get(path)
+	v, ver, err := reg.Get(path)
 	if err != nil {
-		return here, nil, err
+		return here, nil, InvalidVersion, err
 	}
 	s := string(v)
 	if strings.Contains(s, "://") {
 		url, err := net.Parse(s)
 		if err != nil {
-			return here, nil, err
+			return here, nil, InvalidVersion, err
 		}
 		next, err := Dial(ctx, s)
 		if err != nil {
-			return here, nil, err
+			return here, nil, InvalidVersion, err
 		}
 		return Follow(ctx, next, NewPath(url.Path))
 	} else {
-		return here, v, nil
+		return here, v, ver, nil
 	}
 }

@@ -12,6 +12,10 @@ func (this *Node) Id() url.URL {
 	return copy
 }
 
+func (this *Node) Version() int32 {
+	return this.Stats.Version
+}
+
 func (this *Node) Basename() string {
 	return filepath.Base(this.Path)
 }

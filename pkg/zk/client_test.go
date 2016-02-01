@@ -10,17 +10,17 @@ import (
 
 func TestClient(t *testing.T) { TestingT(t) }
 
-type ClientTests struct{}
+type TestSuiteClient struct{}
 
-var _ = Suite(&ClientTests{})
+var _ = Suite(&TestSuiteClient{})
 
-func (suite *ClientTests) TearDownSuite(c *C) {
+func (suite *TestSuiteClient) TearDownSuite(c *C) {
 	z, err := Connect(Hosts(), 5*time.Second)
 	c.Assert(err, Equals, nil)
 	z.DeleteNode("/unit-test") // TODO - this fails before there are children under this node
 }
 
-func (suite *ClientTests) TestConnect(c *C) {
+func (suite *TestSuiteClient) TestConnect(c *C) {
 	z, err := Connect(Hosts(), 5*time.Second)
 	c.Assert(err, Equals, nil)
 	c.Log("Got client", z)
@@ -34,7 +34,7 @@ func (suite *ClientTests) TestConnect(c *C) {
 	c.Assert(z.conn, Not(Equals), nil)
 }
 
-func (suite *ClientTests) TestBasicOperations(c *C) {
+func (suite *TestSuiteClient) TestBasicOperations(c *C) {
 	z, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
@@ -95,7 +95,7 @@ func (suite *ClientTests) TestBasicOperations(c *C) {
 	}
 }
 
-func (suite *ClientTests) TestFullPathObjects(c *C) {
+func (suite *TestSuiteClient) TestFullPathObjects(c *C) {
 	z, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
@@ -137,7 +137,7 @@ func (suite *ClientTests) TestFullPathObjects(c *C) {
 	}
 }
 
-func (suite *ClientTests) TestAppEnvironments(c *C) {
+func (suite *TestSuiteClient) TestAppEnvironments(c *C) {
 	z, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
@@ -180,7 +180,7 @@ func (suite *ClientTests) TestAppEnvironments(c *C) {
 	}
 }
 
-func (suite *ClientTests) TestEphemeral(c *C) {
+func (suite *TestSuiteClient) TestEphemeral(c *C) {
 	z1, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
@@ -218,7 +218,7 @@ func (suite *ClientTests) TestEphemeral(c *C) {
 	z2.Close()
 }
 
-func (suite *ClientTests) TestNodeWatch(c *C) {
+func (suite *TestSuiteClient) TestNodeWatch(c *C) {
 	z1, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
@@ -282,7 +282,7 @@ func (suite *ClientTests) TestNodeWatch(c *C) {
 	c.Log("stop sent")
 }
 
-func (suite *ClientTests) TestWatchContinuous(c *C) {
+func (suite *TestSuiteClient) TestWatchContinuous(c *C) {
 	z1, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
@@ -327,7 +327,7 @@ func (suite *ClientTests) TestWatchContinuous(c *C) {
 
 }
 
-func (suite *ClientTests) TestWatchChildrenContinuous(c *C) {
+func (suite *TestSuiteClient) TestWatchChildrenContinuous(c *C) {
 	z1, err := Connect(Hosts(), time.Second)
 	c.Assert(err, Equals, nil)
 
