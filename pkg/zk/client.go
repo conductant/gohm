@@ -1,7 +1,6 @@
 package zk
 
 import (
-	"errors"
 	"github.com/golang/glog"
 	"github.com/samuel/go-zookeeper/zk"
 	"net/url"
@@ -27,8 +26,8 @@ type client struct {
 
 	running bool
 
-	watch_stops_chan chan chan bool
-	watch_stops      map[chan bool]bool
+	watch_stops_chan chan chan int
+	watch_stops      map[chan int]bool
 
 	shutdown chan int
 }
@@ -62,15 +61,15 @@ func Connect(servers []string, timeout time.Duration) (*client, error) {
 		conn:             conn,
 		servers:          servers,
 		timeout:          timeout,
-		events:           make(chan Event, 1024),
+		events:           make(chan Event, 4096),
 		stop:             make(chan int),
 		ephemeral:        map[string]*Node{},
 		ephemeral_add:    make(chan *Node),
 		ephemeral_remove: make(chan string),
 		retry:            make(chan *Node, 1024),
 		retry_stop:       make(chan int),
-		watch_stops:      make(map[chan bool]bool),
-		watch_stops_chan: make(chan chan bool),
+		watch_stops:      make(map[chan int]bool),
+		watch_stops_chan: make(chan chan int),
 		shutdown:         make(chan int),
 	}
 
@@ -286,93 +285,120 @@ func (this *client) WatchOnceChildren(path string, f func(Event)) (chan<- bool, 
 }
 
 // Continuously watch a path, optional callbacks for errors.
-func (this *client) Watch(path string, f func(Event), alerts ...func(error)) (chan<- bool, error) {
+func (this *client) Watch(path string, f func(Event), errs ...chan<- error) (chan<- int, <-chan error, error) {
 	return this.watch(func() (<-chan zk.Event, error) {
 		_, _, ch, err := this.conn.ExistsW(path)
 		return ch, err
-	}, path, f, alerts...)
+	}, path, f, errs...)
 }
 
 // Watch the children under a path. Only a change in the count of children will result in an event.
 // A mutation on the value of a child will not trigger an event.  A creation or deletion of a child node will.
-func (this *client) WatchChildren(path string, f func(Event), alerts ...func(error)) (chan<- bool, error) {
+func (this *client) WatchChildren(path string, f func(Event), errs ...chan<- error) (chan<- int, <-chan error, error) {
 	return this.watch(func() (<-chan zk.Event, error) {
 		_, _, ch, err := this.conn.ChildrenW(path)
 		return ch, err
-	}, path, f, alerts...)
+	}, path, f, errs...)
 }
 
 type getChan func() (<-chan zk.Event, error)
+type callBack func(Event)
 
-func (this *client) watch(cf getChan, path string, f func(Event), alerts ...func(error)) (chan<- bool, error) {
+func (this *client) watch(cf getChan, p string, f callBack, errs ...chan<- error) (chan<- int, <-chan error, error) {
 	if err := this.check(); err != nil {
-		return nil, err
-	}
-	if f == nil {
-		return nil, errors.New("error-nil-watcher")
+		return nil, nil, err
 	}
 
 	event_chan, err := cf()
 	if err != nil {
-		go func() {
-			for _, a := range alerts {
-				a(err)
-			}
-		}()
-		return nil, err
+		for _, a := range errs {
+			a <- err
+		}
+		return nil, nil, err
 	}
 
-	stop := make(chan bool)
+	stop := make(chan int)
+	stopped := make(chan error)
+
 	this.watch_stops_chan <- stop
+
+	// Use a buffered channel and a separate goroutine to dispatch the event to the user provided callback.
+	// The aim here is to reduce the lag between re-subscription of the watch.  This however, can make
+	// timing unpredicatble since the user's callback is executed in a separate thread.
+	bufferedChan := make(chan *zk.Event, 64)
 	go func() {
-		glog.Infoln("watch: Started watch on", "path=", path)
+
+		defer func() {
+			close(bufferedChan)
+			stopped <- nil
+		}()
+
+		for {
+			event := <-bufferedChan
+			if event == nil {
+				glog.Infoln("watch-callback-stop")
+				return
+			}
+			glog.Infoln("watch-event-process", "path=", p, "type=", event.Type, "state=", event.State)
+			switch event.State {
+			case zk.StateExpired:
+				for _, a := range errs {
+					a <- ErrSessionExpired
+				}
+			case zk.StateDisconnected:
+				for _, a := range errs {
+					a <- ErrConnectionClosed
+				}
+			default:
+				f(Event{Event: *event})
+			}
+		}
+	}()
+
+	go func() {
+		glog.Infoln("watch: Started watch on", "path=", p)
 		for {
 			select {
 			case event := <-event_chan:
 
-				glog.Infoln("watch-state-change", "path=", path, "state=", event.State)
-				switch event.State {
-				case zk.StateExpired:
-					for _, a := range alerts {
-						a(ErrSessionExpired)
-					}
-				case zk.StateDisconnected:
-					for _, a := range alerts {
-						a(ErrConnectionClosed)
-					}
-				default:
-					f(Event{Event: event})
-				}
+				// Buffered channel should not block unless it's full.
+				bufferedChan <- &event
+				glog.Infoln("watch-event-dispatched", "path=", p, "type=", event.Type, "state=", event.State)
 
-				for { // Retry loop
+				for { // Retry / resubscribe loop
 					success := false
 					event_chan, err = cf()
 					if err == nil {
 						success = true
-						this.events <- Event{Event: zk.Event{Path: path}, Action: "Watch-Retry", Note: "retry ok"}
-						glog.Infoln("watch-retry: Continue watching", path)
+						this.events <- Event{Event: zk.Event{Path: p}, Action: "Watch-Retry", Note: "retry ok"}
+						glog.Infoln("watch-retry: Continue watching", p)
 					}
 					if success {
 						break
 					} else {
-						glog.Warningln("watch-retry: Error -", path, err)
-						for _, a := range alerts {
-							a(err)
+						glog.Warningln("watch-retry: Error -", p, err)
+						for _, a := range errs {
+							select { // non blocking send
+							case a <- err:
+							default:
+							}
 						}
 						// Wait a little
 						time.Sleep(1 * time.Second)
-						glog.Infoln("watch-retry: Finished waiting. Try again to watch", path)
-						this.events <- Event{Event: zk.Event{Path: path}, Action: "watch-retry", Note: "retrying"}
+						glog.Infoln("watch-retry: Finished waiting. Try again to watch", p)
+						this.events <- Event{Event: zk.Event{Path: p}, Action: "watch-retry", Note: "retrying"}
 					}
 				}
 
 			case <-stop:
-				glog.Infoln("watch: Watch terminated:", "path=", path)
+				glog.Infoln("watch: Watch terminated:", "path=", p)
+				// Send a nil to the processing goroutine to stop it.
+				bufferedChan <- nil
 				return
 			}
 		}
 	}()
-	return stop, nil
+	return stop, stopped, nil
 }
 
 // Creates a new node.  If node already exists, error will be returned.

@@ -289,7 +289,7 @@ func (suite *ClientTests) TestWatchContinuous(c *C) {
 	p := "/unit-test/" + fmt.Sprintf("%d", time.Now().Unix()) + "/e1/e2"
 
 	count := new(int)
-	stop1, err := z1.Watch(p, func(e Event) {
+	stop1, stopped1, err := z1.Watch(p, func(e Event) {
 		*count++
 		c.Log(">>>>>> event=", e, "count=", *count)
 	})
@@ -320,9 +320,11 @@ func (suite *ClientTests) TestWatchContinuous(c *C) {
 
 	time.Sleep(delay)
 
-	stop1 <- true
+	stop1 <- 0
+	<-stopped1
 
 	c.Assert(*count, Equals, 3+1) // 1 create + 3 changes
+
 }
 
 func (suite *ClientTests) TestWatchChildrenContinuous(c *C) {
@@ -340,7 +342,7 @@ func (suite *ClientTests) TestWatchChildrenContinuous(c *C) {
 
 	// Now we watch once the node is created.
 	count := new(int)
-	stop1, err := z1.WatchChildren(p, func(e Event) {
+	stop1, stopped1, err := z1.WatchChildren(p, func(e Event) {
 		*count++
 		c.Log("++++++ event=", e, "count=", *count)
 	})
@@ -378,7 +380,7 @@ func (suite *ClientTests) TestWatchChildrenContinuous(c *C) {
 
 	time.Sleep(delay)
 
-	stop1 <- true
-
+	stop1 <- 0
+	<-stopped1
 	c.Assert(*count, Equals, 3) // 1 create + 3 changes
 }

@@ -2,6 +2,7 @@ package zk
 
 import (
 	. "github.com/conductant/gohm/pkg/registry"
+	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"net/url"
 	"strings"
@@ -70,13 +71,14 @@ func (this *client) Put(key Path, value []byte, ephemeral bool) error {
 
 func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {
 	stop := make(chan int)
-	events := make(chan interface{}, 512)
+	events := make(chan interface{}, 8)
 
-	var cStop chan<- bool
+	var cStop chan<- int
+	var cStopped <-chan error
 	var err error
 	switch t := t.(type) {
 	case Create:
-		cStop, err = this.Watch(t.Path.String(),
+		cStop, cStopped, err = this.Watch(t.Path.String(),
 			func(e Event) {
 				if e.Type == EventNodeCreated {
 					events <- e
@@ -86,7 +88,7 @@ func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {
 			return nil, nil, err
 		}
 	case Change:
-		cStop, err = this.Watch(t.Path.String(),
+		cStop, cStopped, err = this.Watch(t.Path.String(),
 			func(e Event) {
 				if e.Type == EventNodeDataChanged {
 					events <- e
@@ -96,7 +98,7 @@ func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {
 			return nil, nil, err
 		}
 	case Delete:
-		cStop, err = this.Watch(t.Path.String(),
+		cStop, cStopped, err = this.Watch(t.Path.String(),
 			func(e Event) {
 				if e.Type == EventNodeDeleted {
 					events <- e
@@ -107,7 +109,7 @@ func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {
 		}
 	case Members:
 		// TODO - Implement the matching criteria using min/max/delta, etc.
-		cStop, err = this.WatchChildren(t.Path.String(),
+		cStop, cStopped, err = this.WatchChildren(t.Path.String(),
 			func(e Event) {
 				if e.Type == EventNodeChildrenChanged {
 					events <- e
@@ -119,8 +121,11 @@ func (this *client) Trigger(t Trigger) (<-chan interface{}, chan<- int, error) {
 	}
 	go func() {
 		// Stop the watch
-		<-stop
-		cStop <- true
+		c := <-stop
+		cStop <- c
+		glog.Infoln("Waiting for user callbacks to finish")
+		<-cStopped
+		glog.Infoln("Stopped.")
 	}()
 	return events, stop, nil
 }

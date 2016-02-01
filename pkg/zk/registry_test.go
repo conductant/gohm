@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var delay = 1000 * time.Millisecond
+var delay = 200 * time.Millisecond
 
 func TestRegistry(t *testing.T) { TestingT(t) }
 
@@ -132,25 +132,34 @@ func (suite *TestSuiteRegistry) TestTriggerCreate(c *C) {
 	c.Assert(err, IsNil)
 	c.Log(zk)
 
-	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger/create", time.Now().Unix()))
 
 	created, stop, err := zk.Trigger(registry.Create{Path: p})
 	c.Assert(err, IsNil)
 
 	count := new(int)
+	done := make(chan int)
 	go func() {
-		e := <-created
-		*count++
-		c.Log("**** Got event:", e, " count=", *count)
+		for {
+			select {
+			case e := <-created:
+				*count++
+				c.Log("**** Got event:", e, " count=", *count)
+			case <-done:
+				break
+			}
+		}
 	}()
 
 	err = zk.Put(p, []byte{1}, false)
 	c.Assert(err, IsNil)
 
-	stop <- 1
-
 	time.Sleep(delay)
+
+	done <- 1
+
 	c.Assert(*count, Equals, 1)
+	stop <- 1
 }
 
 func (suite *TestSuiteRegistry) TestTriggerDelete(c *C) {
@@ -160,14 +169,17 @@ func (suite *TestSuiteRegistry) TestTriggerDelete(c *C) {
 	c.Assert(err, IsNil)
 	c.Log(zk)
 
-	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger/delete", time.Now().Unix()))
 
 	deleted, stop, err := zk.Trigger(registry.Delete{Path: p})
 	c.Assert(err, IsNil)
 
 	count := new(int)
 	go func() {
-		e := <-deleted
+		e, open := <-deleted
+		if !open {
+			return
+		}
 		*count++
 		c.Log("**** Got event:", e, " count=", *count)
 	}()
@@ -193,35 +205,58 @@ func (suite *TestSuiteRegistry) TestTriggerChange(c *C) {
 	c.Assert(err, IsNil)
 	c.Log(zk)
 
-	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger/change", time.Now().Unix()))
 
 	changed, stop, err := zk.Trigger(registry.Change{Path: p})
 	c.Assert(err, IsNil)
 
 	count := new(int)
+	done := make(chan int)
 	go func() {
 		for {
-			e := <-changed
-			*count++
-			c.Log("**** Got event:", e, " count=", *count)
+			select {
+			case e := <-changed:
+				*count++
+				c.Log("**** Got event:", e, " count=", *count)
+			case <-done:
+				break
+			}
 		}
 	}()
 
 	err = zk.Put(p, []byte{1}, false)
 	c.Assert(err, IsNil)
+	c.Log("*** create")
 
 	time.Sleep(delay)
 
-	err = zk.Put(p, []byte{1}, false)
+	err = zk.Put(p, []byte{2}, false)
 	c.Assert(err, IsNil)
+	c.Log("*** change")
 
 	time.Sleep(delay)
+
+	err = zk.Put(p, []byte{3}, false)
+	c.Assert(err, IsNil)
+	c.Log("*** change")
+
+	time.Sleep(delay)
+
+	err = zk.Put(p, []byte{4}, false)
+	c.Assert(err, IsNil)
+	c.Log("*** change")
+
+	time.Sleep(delay * 2)
 
 	stop <- 1
 
-	time.Sleep(delay)
+	time.Sleep(delay * 2)
 
-	c.Assert(*count, Equals, 2)
+	done <- 1
+
+	if *count < 3 {
+		panic("Should be at least 3 events... sometimes zk will send 4 changes.")
+	}
 }
 
 func (suite *TestSuiteRegistry) TestTriggerMembers(c *C) {
@@ -231,7 +266,7 @@ func (suite *TestSuiteRegistry) TestTriggerMembers(c *C) {
 	c.Assert(err, IsNil)
 	c.Log(zk)
 
-	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger", time.Now().Unix()))
+	p := registry.NewPath(fmt.Sprintf("/unit-test/registry/%d/trigger/members", time.Now().Unix()))
 
 	err = zk.Put(p, []byte{1}, false)
 	c.Assert(err, IsNil)
@@ -268,7 +303,7 @@ func (suite *TestSuiteRegistry) TestTriggerMembers(c *C) {
 	err = zk.Delete(p.Sub("3"))
 	c.Assert(err, IsNil)
 
-	time.Sleep(delay)
+	time.Sleep(delay * 2)
 	stop <- 1
 	c.Assert(*count, Equals, 4)
 }
