@@ -82,7 +82,7 @@ func (this *serviceBuilder) Route(m ServiceMethod) *routeBuilder {
 		binding: &methodBinding{
 			Api: m,
 		}}
-	this.routes[m.UrlRoute] = route
+	this.routes[string(m.HttpMethod)+"/"+m.UrlRoute] = route
 	return route
 }
 
@@ -112,9 +112,9 @@ func (this *serviceBuilder) Build() Server {
 		}
 	}
 
-	for route, builder := range this.routes {
+	for methodRoute, builder := range this.routes {
 		binding := builder.binding
-		this.engine.routes[route] = binding
+		this.engine.routes[methodRoute] = binding
 
 		// Get the function name of the handler and use that to index bindings.
 		fn := cleanFuncName(runtime.FuncForPC(reflect.ValueOf(binding.Handler).Pointer()).Name())
