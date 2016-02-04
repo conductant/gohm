@@ -33,20 +33,15 @@ type cache map[cacheKey]*reference
 var (
 	lock sync.Mutex
 
-	protocols  = map[scheme]Implementation{}
-	sanitizers = map[scheme]UrlSanitizer{}
-	registries = cache{}
+	protocols      = map[scheme]Implementation{}
+	sanitizers     = map[scheme]UrlSanitizer{}
+	registries     = cache{}
+	registriesLock sync.Mutex
 
 	proposeToClose     = make(chan Registry)
 	registryCreated    = make(chan *reference)
 	registryReferenced = make(chan Registry)
 )
-
-func synchronized(f func()) {
-	lock.Lock()
-	defer lock.Unlock()
-	f()
-}
 
 func init() {
 	// Go routine here to keep track of registries by protocol and host string.  For a given
@@ -57,38 +52,32 @@ func init() {
 			select {
 			case reg := <-proposeToClose:
 				url := reg.Id()
-				synchronized(func() {
-					ref := registries.get(&url)
-					glog.Infoln("Propose to close", ref.count)
-					if ref != nil {
-						ref.count--
-						glog.Infoln("--------------------------------------------------------", ref.count)
-						if ref.count == 0 {
-							registries.remove(&url)
-							ref.dispose.accept <- true
-							glog.Infoln("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", ref.count)
-						} else {
-							ref.dispose.accept <- false // do not dispose resources. others are using.
-						}
+				ref := registries.get(&url)
+				glog.Infoln("Propose to close", ref.count)
+				if ref != nil {
+					ref.count--
+					glog.Infoln("--------------------------------------------------------", ref.count)
+					if ref.count == 0 {
+						registries.remove(&url)
+						ref.dispose.accept <- true
+						glog.Infoln("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", ref.count)
 					} else {
-						panic("shouldn't be here!")
+						ref.dispose.accept <- false // do not dispose resources. others are using.
 					}
-				})
+				} else {
+					panic("shouldn't be here!")
+				}
 			case ref := <-registryCreated:
-				synchronized(func() {
-					registries.add(ref)
-				})
+				registries.add(ref)
 			case reg := <-registryReferenced:
 				url := reg.Id()
-				synchronized(func() {
-					ref := registries.get(&url)
-					if ref != nil {
-						ref.count++
-						glog.Infoln("++++++++++++++++++++++++++++++++++++++++++++++++++++++++", ref.count)
-					} else {
-						panic("shouldn't be here")
-					}
-				})
+				ref := registries.get(&url)
+				if ref != nil {
+					ref.count++
+					glog.Infoln("++++++++++++++++++++++++++++++++++++++++++++++++++++++++", ref.count)
+				} else {
+					panic("shouldn't be here")
+				}
 			}
 		}
 	}()
@@ -99,6 +88,9 @@ func (this cache) key(u *net.URL) cacheKey {
 }
 
 func (this cache) add(ref *reference) {
+	registriesLock.Lock()
+	defer registriesLock.Unlock()
+
 	url := ref.registry.Id()
 	key := this.key(&url)
 	if r, has := this[key]; !has {
@@ -109,14 +101,18 @@ func (this cache) add(ref *reference) {
 }
 
 func (this cache) get(url *net.URL) *reference {
+	// Without locking but check to make sure we don't return something that will be garbage collected.
 	key := this.key(url)
-	if ref, has := this[key]; has {
+	if ref, has := this[key]; has && ref.count > 0 {
 		return ref
 	}
 	return nil
 }
 
 func (this cache) remove(url *net.URL) {
+	registriesLock.Lock()
+	defer registriesLock.Unlock()
+
 	key := this.key(url)
 	delete(this, key)
 }
