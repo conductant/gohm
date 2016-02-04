@@ -305,7 +305,7 @@ func (suite *TestSuiteClient) TestWatchContinuous(c *C) {
 	c.Assert(err, IsNil)
 
 	// Note that there is a race between re-subscribing to the updates.
-	time.Sleep(delay)
+	time.Sleep(delay * 3)
 
 	c.Assert(*count, Equals, 2) // First operation has a create and a change.
 

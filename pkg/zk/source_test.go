@@ -28,6 +28,7 @@ func (suite *TestSuiteSource) TestSourceUsage(c *C) {
 	zk, err := registry.Dial(ctx, url)
 	c.Assert(err, IsNil)
 	c.Log(zk)
+	defer zk.Close()
 
 	root := registry.NewPathf("/unit-test/zk/%d/source", time.Now().Unix())
 	value := []byte("test-value-12345")
