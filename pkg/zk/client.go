@@ -501,7 +501,7 @@ func (this *client) PutNode(key string, value []byte, ephemeral bool) (*Node, er
 		if err != nil {
 			return nil, err
 		} else {
-			return n, n.Set(value)
+			return n, nil
 		}
 	default:
 		return nil, err

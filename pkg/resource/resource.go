@@ -1,4 +1,4 @@
-package template
+package resource
 
 import (
 	"crypto/tls"
@@ -8,31 +8,33 @@ import (
 	net "net/url"
 	"os"
 	"strings"
+	"sync"
 )
 
 const (
-	SourceHttp   = "http"
-	SourceHttps  = "https"
-	SourceString = "string"
-	SourceFile   = "file"
+	ResourceHttp   = "http"
+	ResourceHttps  = "https"
+	ResourceString = "string"
+	ResourceFile   = "file"
 )
 
-type SourceFunc func(context.Context, string) ([]byte, error)
+type ResourceFunc func(context.Context, string) ([]byte, error)
 
 var (
-	protocols = map[string]SourceFunc{}
+	lock      sync.Mutex
+	protocols = map[string]ResourceFunc{}
 )
 
 func init() {
-	Register(SourceHttp, HttpSource)
-	Register(SourceHttps, HttpSource)
-	Register(SourceString, StringSource)
-	Register(SourceFile, FileSource)
+	Register(ResourceHttp, HttpResource)
+	Register(ResourceHttps, HttpResource)
+	Register(ResourceString, StringResource)
+	Register(ResourceFile, FileResource)
 }
 
 // Packages providing different backend support for this should call this
 // in its `init()` function.
-func Register(protocol string, source SourceFunc) {
+func Register(protocol string, source ResourceFunc) {
 	lock.Lock()
 	defer lock.Unlock()
 	protocols[protocol] = source
@@ -43,7 +45,7 @@ func Register(protocol string, source SourceFunc) {
 // implementations in this package (see constants).
 // Other packages using different backends can call the `Register` function to
 // register different implementations.
-func Source(ctx context.Context, url string) ([]byte, error) {
+func Fetch(ctx context.Context, url string) ([]byte, error) {
 	parsed, err := net.Parse(url)
 	if err != nil {
 		return nil, err
@@ -69,7 +71,7 @@ func ContextGetHttpHeader(ctx context.Context) http.Header {
 	return nil
 }
 
-func HttpSource(ctx context.Context, url string) ([]byte, error) {
+func HttpResource(ctx context.Context, url string) ([]byte, error) {
 	// Don't check certificate for https
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -92,12 +94,12 @@ func HttpSource(ctx context.Context, url string) ([]byte, error) {
 	return content, err
 }
 
-func StringSource(ctx context.Context, url string) ([]byte, error) {
+func StringResource(ctx context.Context, url string) ([]byte, error) {
 	content := url[len("string://"):]
 	return []byte(content), nil
 }
 
-func FileSource(ctx context.Context, url string) ([]byte, error) {
+func FileResource(ctx context.Context, url string) ([]byte, error) {
 	file := url[len("file://"):]
 	switch {
 	case strings.Index(file, "~") > -1:

@@ -2,6 +2,7 @@ package template
 
 import (
 	"github.com/conductant/gohm/pkg/auth"
+	"github.com/conductant/gohm/pkg/resource"
 	"github.com/conductant/gohm/pkg/server"
 	"github.com/conductant/gohm/pkg/testutil"
 	"golang.org/x/net/context"
@@ -53,7 +54,7 @@ func (suite *TestSuiteTemplate) TestTemplateToFile(c *C) {
 		"Age":  20,
 		"port": suite.port,
 	}
-	ctx := ContextPutTemplateData(ContextPutHttpHeader(context.Background(), header), data)
+	ctx := ContextPutTemplateData(resource.ContextPutHttpHeader(context.Background(), header), data)
 
 	text, err := Execute(ctx, url)
 	c.Assert(err, IsNil)

@@ -167,10 +167,11 @@ func (suite *TestSuiteRegistry) TestFollow(c *C) {
 	u, err := net.Parse(url + p.Sub("1").String())
 	c.Assert(err, IsNil)
 	path, value, version, err := registry.FollowUrl(ctx, *u)
+	c.Log("path=", path, ",value=", value, ",version=", version, ",err=", err)
 	c.Assert(err, IsNil)
 	c.Assert(value, DeepEquals, []byte("end"))
 	c.Assert(path.String(), Equals, url+p.Sub("4").String())
-	c.Assert(version > 0, Equals, true)
+	c.Assert(version, Not(Equals), registry.InvalidVersion)
 }
 
 func (suite *TestSuiteRegistry) TestTriggerCreate(c *C) {

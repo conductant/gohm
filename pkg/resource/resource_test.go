@@ -1,4 +1,4 @@
-package template
+package resource
 
 import (
 	"fmt"
@@ -14,9 +14,9 @@ import (
 	"time"
 )
 
-func TestSource(t *testing.T) { TestingT(t) }
+func TestResource(t *testing.T) { TestingT(t) }
 
-type TestSuiteSource struct {
+type TestSuiteResource struct {
 	port         int
 	template     string
 	stop         chan<- int
@@ -26,9 +26,9 @@ type TestSuiteSource struct {
 
 var templateFileContent = "this is some test template written to disk"
 
-var _ = Suite(&TestSuiteSource{port: 7981})
+var _ = Suite(&TestSuiteResource{port: 7981})
 
-func (suite *TestSuiteSource) SetUpSuite(c *C) {
+func (suite *TestSuiteResource) SetUpSuite(c *C) {
 	suite.stop, suite.stopped = server.NewService().
 		ListenPort(suite.port).
 		WithAuth(server.Auth{VerifyKeyFunc: testutil.PublicKeyFunc}.Init()).
@@ -46,38 +46,38 @@ func (suite *TestSuiteSource) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (suite *TestSuiteSource) TearDownSuite(c *C) {
+func (suite *TestSuiteResource) TearDownSuite(c *C) {
 	suite.stop <- 1
 	<-suite.stopped
 	os.Remove(suite.templateFile)
 }
 
-func (suite *TestSuiteSource) TestStringSource(c *C) {
+func (suite *TestSuiteResource) TestStringResource(c *C) {
 	source := "string://{.FirstName}{.LastName}"
 	ctx := context.Background()
-	t, err := Source(ctx, source)
+	t, err := Fetch(ctx, source)
 	c.Assert(err, IsNil)
 	c.Assert(string(t), DeepEquals, "{.FirstName}{.LastName}")
 }
 
-func (suite *TestSuiteSource) TestFileSource(c *C) {
+func (suite *TestSuiteResource) TestFileResource(c *C) {
 	source := "file://" + suite.templateFile
 	ctx := context.Background()
-	t, err := Source(ctx, source)
+	t, err := Fetch(ctx, source)
 	c.Assert(err, IsNil)
 	c.Assert(string(t), DeepEquals, templateFileContent)
 }
 
-func (suite *TestSuiteSource) TestHttpSource(c *C) {
+func (suite *TestSuiteResource) TestHttpResource(c *C) {
 	suite.template = "this-template"
 	source := fmt.Sprintf("http://localhost:%d/template", suite.port)
 	ctx := context.Background()
-	t, err := Source(ctx, source)
+	t, err := Fetch(ctx, source)
 	c.Assert(err, IsNil)
 	c.Assert(string(t), DeepEquals, suite.template)
 }
 
-func (suite *TestSuiteSource) TestHttpSourceWithToken(c *C) {
+func (suite *TestSuiteResource) TestHttpResourceWithToken(c *C) {
 	suite.template = "secure-template"
 	source := fmt.Sprintf("http://localhost:%d/secure", suite.port)
 
@@ -87,7 +87,7 @@ func (suite *TestSuiteSource) TestHttpSourceWithToken(c *C) {
 	token.SetHeader(header, testutil.PrivateKeyFunc)
 	ctx = ContextPutHttpHeader(ctx, header)
 
-	t, err := Source(ctx, source)
+	t, err := Fetch(ctx, source)
 	c.Assert(err, IsNil)
 	c.Assert(string(t), DeepEquals, suite.template)
 }

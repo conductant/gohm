@@ -3,6 +3,7 @@ package template
 import (
 	"fmt"
 	"github.com/conductant/gohm/pkg/auth"
+	"github.com/conductant/gohm/pkg/resource"
 	"github.com/conductant/gohm/pkg/server"
 	"github.com/conductant/gohm/pkg/testutil"
 	"golang.org/x/net/context"
@@ -102,7 +103,7 @@ func (suite *TestSuiteFuncs) TestContentToFileWithAuthToken(c *C) {
 	token := auth.NewToken(1*time.Hour).Add("secure", 1)
 	header := http.Header{}
 	token.SetHeader(header, testutil.PrivateKeyFunc)
-	ctx := ContextPutHttpHeader(context.Background(), header)
+	ctx := resource.ContextPutHttpHeader(context.Background(), header)
 
 	// set up the content
 	suite.content = "this is a test"
