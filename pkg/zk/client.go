@@ -1,7 +1,7 @@
 package zk
 
 import (
-	"github.com/conductant/gohm/pkg/registry"
+	"github.com/conductant/gohm/pkg/store"
 	"github.com/golang/glog"
 	"github.com/samuel/go-zookeeper/zk"
 	"net/url"
@@ -31,7 +31,7 @@ type client struct {
 	watch_stops      map[chan int]bool
 
 	shutdown chan int
-	close    registry.Dispose
+	close    store.Dispose
 }
 
 func (this *client) on_connect() {
@@ -101,7 +101,7 @@ func Connect(servers []string, timeout time.Duration) (*client, error) {
 					return
 				}
 				zz.ephemeral[add.Path] = add
-				glog.Infoln("EPHEMERAL-CACHE-ADD: Path=", add.Path, "Value=", string(add.Value))
+				glog.Infoln("ephemeral-add: Path=", add.Path, "Value=", string(add.Value))
 
 			case remove, open := <-zz.ephemeral_remove:
 				if !open {
@@ -109,7 +109,7 @@ func Connect(servers []string, timeout time.Duration) (*client, error) {
 				}
 				if _, has := zz.ephemeral[remove]; has {
 					delete(zz.ephemeral, remove)
-					glog.Infoln("EPHEMERAL-CACHE-REMOVE: Path=", remove)
+					glog.Infoln("ephemeral-remove: Path=", remove)
 				}
 			}
 		}
@@ -119,7 +119,7 @@ func Connect(servers []string, timeout time.Duration) (*client, error) {
 		for {
 			select {
 			case evt := <-events:
-				glog.Infoln("ZK-Event-Main:", evt)
+				glog.Infoln("zk-event-chan:", evt)
 				switch evt.State {
 				case StateExpired:
 					glog.Warningln("ZK state expired --> sent by server on reconnection.")
@@ -127,7 +127,6 @@ func Connect(servers []string, timeout time.Duration) (*client, error) {
 					// sends this event on reconnection.
 					zz.on_connect()
 				case StateHasSession:
-					glog.Warningln("ZK state has-session")
 					zz.on_connect()
 				case StateDisconnected:
 					glog.Warningln("ZK state disconnected")

@@ -1,9 +1,22 @@
 package registry
 
 import (
+	"fmt"
+	"github.com/conductant/gohm/pkg/store"
 	"golang.org/x/net/context"
 	net "net/url"
 	"strings"
+	"sync"
+)
+
+type scheme string
+
+var (
+	regStore = store.NewRefCountStore(keyFromRegistry).Start()
+
+	lock       sync.Mutex
+	protocols  = map[scheme]Implementation{}
+	sanitizers = map[scheme]UrlSanitizer{}
 )
 
 // Get an instance of the registry.  The url can specify host(s) such as
@@ -21,26 +34,38 @@ func Dial(ctx context.Context, url string) (Registry, error) {
 		clean := sanitizer(*u)
 		u = &clean
 	}
-	if ref := registries.get(u); ref != nil {
-		registryReferenced <- ref.registry
-		return ref.registry, nil
-	}
-	if impl, has := protocols[scheme(u.Scheme)]; !has {
+	impl, has := protocols[scheme(u.Scheme)]
+	if !has {
 		return nil, &NotSupportedProtocol{u.Scheme}
-	} else {
-		d := &dispose{
-			propose: proposeToClose,
-			accept:  make(chan bool),
-		}
-		reg, err := impl(ctx, *u, d)
-		if err != nil {
-			return nil, err
-		} else {
-			registryCreated <- &reference{registry: reg, count: 1, dispose: d}
-			return reg, nil
-		}
 	}
+	reg, err := regStore.Get(keyFromUrl(u), func(d store.Dispose) (store.Key, store.Object, error) {
+		obj, err := impl(ctx, *u, d)
+		if err != nil {
+			return nil, nil, err
+		}
+		key := keyFromRegistry(obj)
+		return key, store.Object(obj), nil
+	})
+	if reg != nil {
+		return reg.(Registry), err
+	} else {
+		return nil, err
+	}
+}
 
+func keyFromUrl(u *net.URL) store.Key {
+	return store.Key(fmt.Sprintf("%s://%s", u.Scheme, u.Host))
+}
+
+// Function that returns the store key given a registry.
+func keyFromRegistry(obj store.Object) store.Key {
+	switch obj := obj.(type) {
+	case Registry:
+		u := obj.Id()
+		return keyFromUrl(&u)
+	default:
+		panic(fmt.Errorf("Not a registry object %v", obj))
+	}
 }
 
 // Given the fully specified url that includes protocol and host and path,
