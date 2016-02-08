@@ -1,3 +1,6 @@
+// Resource pacakge is for loading resources identified by a URL.
+// Supports for different protocols such as http, https, strings, files, exist.
+// Other modules can register additional support for protocols such as zookeeper.
 package resource
 
 import (

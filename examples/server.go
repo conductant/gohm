@@ -45,7 +45,7 @@ func startServer(port int) <-chan error {
 		}.Init()).
 		ListenPort(port).
 		Route(
-		server.ServiceMethod{
+		server.Endpoint{
 			UrlRoute:   "/info",
 			HttpMethod: server.GET,
 			AuthScope:  server.AuthScopeNone,
@@ -53,13 +53,10 @@ func startServer(port int) <-chan error {
 		To(
 		func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 			glog.Infoln("Showing version info.")
-			err := server.Marshal(req, version.BuildInfo(), resp)
-			if err != nil {
-				panic(err)
-			}
+			server.Marshal(resp, req, version.BuildInfo())
 		}).
 		Route(
-		server.ServiceMethod{
+		server.Endpoint{
 			UrlRoute:   "/quitquitquit",
 			HttpMethod: server.POST,
 			AuthScope:  server.AuthScope("quitquitquit"),

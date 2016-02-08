@@ -28,7 +28,7 @@ func (suite *TestSuiteTemplate) SetUpSuite(c *C) {
 	suite.stop, suite.stopped = server.NewService().
 		ListenPort(suite.port).
 		WithAuth(server.Auth{VerifyKeyFunc: testutil.PublicKeyFunc}.Init()).
-		Route(server.ServiceMethod{UrlRoute: "/secure", HttpMethod: server.GET, AuthScope: server.AuthScope("secure")}).
+		Route(server.Endpoint{UrlRoute: "/secure", HttpMethod: server.GET, AuthScope: server.AuthScope("secure")}).
 		To(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 		resp.Write([]byte(suite.template))
 	}).Start()

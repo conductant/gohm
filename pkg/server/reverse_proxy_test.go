@@ -31,7 +31,7 @@ func (suite *TestSuiteReverseProxy) SetUpSuite(c *C) {
 	// Set up a backend
 	suite.backendPort = 7891
 	suite.backendStop, suite.backendStopped = NewService().WithAuth(DisableAuth()).ListenPort(suite.backendPort).
-		Route(ServiceMethod{
+		Route(Endpoint{
 		UrlRoute:   "/test/get",
 		HttpMethod: GET,
 		AuthScope:  AuthScopeNone,
@@ -42,7 +42,7 @@ func (suite *TestSuiteReverseProxy) SetUpSuite(c *C) {
 
 	suite.proxyPort = 7712
 	suite.proxyStop, suite.proxyStopped = NewService().WithAuth(DisableAuth()).ListenPort(suite.proxyPort).
-		Route(ServiceMethod{
+		Route(Endpoint{
 		UrlRoute:   "/{host_port}/{url:.*}",
 		HttpMethod: GET,
 		AuthScope:  AuthScopeNone,

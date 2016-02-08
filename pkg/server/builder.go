@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/conductant/gohm/pkg/encoding"
 	"github.com/gorilla/mux"
 	"reflect"
 	"runtime"
@@ -76,7 +77,7 @@ func (this *serviceBuilder) WithWebhooks(webhooks WebhookManager) *serviceBuilde
 	return this
 }
 
-func (this *serviceBuilder) Route(m ServiceMethod) *routeBuilder {
+func (this *serviceBuilder) Route(m Endpoint) *routeBuilder {
 	route := &routeBuilder{
 		parent: this,
 		binding: &methodBinding{
@@ -137,12 +138,8 @@ func (this *serviceBuilder) Build() Server {
 		}
 
 		// check the content type
-		ct := string(binding.Api.ContentType)
-		if _, has := marshalers[ct]; !has {
-			panic(fmt.Sprintf("Bad content type: %s", ct))
-		}
-		if _, has := unmarshalers[ct]; !has {
-			panic(fmt.Sprintf("Bad content type: %s", ct))
+		if !encoding.Check(binding.Api.ContentType) {
+			panic(fmt.Sprintf("Bad content type: %s", binding.Api.ContentType))
 		}
 
 	}

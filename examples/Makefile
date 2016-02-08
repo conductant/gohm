@@ -1,4 +1,8 @@
-all: build-example-server build-token-generator
+all: clean build-example-server build-token-generator
+
+clean:
+	-rm server
+	-rm token
 
 # Common makefile that extracts git version info and generates the LDFLAGS variable.
 include ../hack/make/version.mk
