@@ -3,6 +3,7 @@ all: clean build-example-server build-token-generator
 clean:
 	-rm server
 	-rm token
+	-rm proxy
 
 # Common makefile that extracts git version info and generates the LDFLAGS variable.
 include ../hack/make/version.mk
@@ -22,10 +23,18 @@ build-token-generator:
 build-example-server:
 	${GODEP} go build -ldflags "$(LDFLAGS)" server.go
 
+build-example-reverse-proxy:
+	${GODEP} go build -ldflags "$(LDFLAGS)" proxy.go
+
 example-run-server: gen-key-pair
 	${GODEP} go run -ldflags "$(LDFLAGS)" server.go --logtostderr --port=5050 --auth.public.key=./example_key.pub
+
+example-run-reverse-proxy: gen-key-pair
+	${GODEP} go run -ldflags "$(LDFLAGS)" proxy.go --logtostderr --port=5050 --auth.public.key=./example_key.pub
 
 EXAMPLE_SERVER_PORT?=5050
 example-server-quitquitquit:
 	curl -i -X POST -H "Authorization: Bearer `./token -token.private.key=example_key -A quitquitquit`" \
 	http://localhost:$(EXAMPLE_SERVER_PORT)/quitquitquit
+
+

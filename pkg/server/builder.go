@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	"reflect"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -83,7 +84,12 @@ func (this *serviceBuilder) Route(m Endpoint) *routeBuilder {
 		binding: &methodBinding{
 			Api: m,
 		}}
-	this.routes[string(m.HttpMethod)+"/"+m.UrlRoute] = route
+	for _, mt := range m.HttpMethods {
+		this.routes[string(mt)+"/"+m.UrlRoute] = route
+	}
+	if m.HttpMethod != "" {
+		this.routes[string(m.HttpMethod)+"/"+m.UrlRoute] = route
+	}
 	return route
 }
 
@@ -114,6 +120,7 @@ func (this *serviceBuilder) Build() Server {
 	}
 
 	for methodRoute, builder := range this.routes {
+
 		binding := builder.binding
 		this.engine.routes[methodRoute] = binding
 
@@ -126,16 +133,7 @@ func (this *serviceBuilder) Build() Server {
 		}
 
 		h := this.engine.router.HandleFunc(binding.Api.UrlRoute, httpHandler(this.engine, binding, this.auth))
-		if len(binding.Api.HttpMethods) > 0 {
-			s := []string{}
-			for _, m := range binding.Api.HttpMethods {
-				s = append(s, string(m))
-			}
-			h.Methods(s...)
-		}
-		if binding.Api.HttpMethod != "" {
-			h.Methods(string(binding.Api.HttpMethod))
-		}
+		h.Methods(strings.Split(methodRoute, "/")[0])
 
 		// check the content type
 		if !encoding.Check(binding.Api.ContentType) {

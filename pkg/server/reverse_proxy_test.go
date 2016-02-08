@@ -32,11 +32,11 @@ func (suite *TestSuiteReverseProxy) SetUpSuite(c *C) {
 	suite.backendPort = 7891
 	suite.backendStop, suite.backendStopped = NewService().WithAuth(DisableAuth()).ListenPort(suite.backendPort).
 		Route(Endpoint{
-		UrlRoute:   "/test/get",
-		HttpMethod: GET,
-		AuthScope:  AuthScopeNone,
+		UrlRoute:    "/test/get",
+		HttpMethods: []HttpMethod{GET, POST},
+		AuthScope:   AuthScopeNone,
 	}).To(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-		c.Log("GET called")
+		c.Log("Method called:", req.Method)
 		suite.backendInvokes++
 	}).Start()
 
