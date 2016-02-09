@@ -26,11 +26,17 @@ build-example-server:
 build-example-reverse-proxy:
 	${GODEP} go build -ldflags "$(LDFLAGS)" proxy.go
 
+build-example-command:
+	${GODEP} go build -ldflags "$(LDFLAGS)" command.go
+
 example-run-server: gen-key-pair
 	${GODEP} go run -ldflags "$(LDFLAGS)" server.go --logtostderr --port=5050 --auth.public.key=./example_key.pub
 
 example-run-reverse-proxy: gen-key-pair
 	${GODEP} go run -ldflags "$(LDFLAGS)" proxy.go --logtostderr --port=5050 --auth.public.key=./example_key.pub
+
+example-run-command-version:
+	${GODEP} go run -ldflags "$(LDFLAGS)" command.go version
 
 EXAMPLE_SERVER_PORT?=5050
 example-server-quitquitquit:

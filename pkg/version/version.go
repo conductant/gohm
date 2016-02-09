@@ -3,6 +3,8 @@ package version
 import (
 	"flag"
 	"fmt"
+	"github.com/conductant/gohm/pkg/command"
+	"io"
 	"os"
 )
 
@@ -31,6 +33,12 @@ var (
 	}
 )
 
+func init() {
+	command.Register("version", func() (command.Verb, command.ErrorHandling) {
+		return BuildInfo(), command.PanicOnError
+	})
+}
+
 type Build struct {
 	RepoUrl   string
 	Branch    string
@@ -57,7 +65,7 @@ func (this *Build) HandleFlag() {
 }
 
 func (this *Build) Notice() string {
-	return fmt.Sprintf("%s: Version %s (%s), Build %s, Label %s. Built on %s.\n",
+	return fmt.Sprintf("%s: Version %s (%s), Build %s, Label %s. Built on %s.",
 		os.Args[0], this.Tag, this.Commit, this.Number, this.Label, this.Timestamp)
 }
 
@@ -87,4 +95,20 @@ func (this *Build) GetNumber() string {
 
 func (this *Build) GetLabel() string {
 	return this.Label
+}
+
+func (this *Build) Help(w io.Writer) {
+	fmt.Fprintln(w, "Prints the build version.")
+}
+
+func (this *Build) RegisterFlags(fs *flag.FlagSet) {
+}
+
+func (this *Build) Run(args []string, w io.Writer) error {
+	fmt.Fprintf(w, "%s\n", this.Notice())
+	return nil
+}
+
+func (this *Build) Close() error {
+	return nil
 }
