@@ -4,28 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"gopkg.in/yaml.v2"
 	"io"
 )
-
-type nht int
-
-const (
-	no_header nht = 1
-)
-const (
-	ContentTypeDefault  ContentType = ContentType("")
-	ContentTypeAny      ContentType = ContentType("*/*")
-	ContentTypeJSON     ContentType = ContentType("application/json")
-	ContentTypeProtobuf ContentType = ContentType("application/protobuf")
-	ContentTypeHTML     ContentType = ContentType("text/html")
-	ContentTypePlain    ContentType = ContentType("text/plain")
-)
-
-type ContentType string
-
-func (this ContentType) String() string {
-	return string(this)
-}
 
 func MarshalString(w io.Writer, value interface{}) error {
 	switch value := value.(type) {
@@ -41,22 +22,31 @@ func MarshalString(w io.Writer, value interface{}) error {
 	return nil
 }
 
-func MarshalJSON(resp io.Writer, typed interface{}) error {
-	if buff, err := json.Marshal(typed); err == nil {
-		resp.Write(buff)
+func MarshalJSON(w io.Writer, v interface{}) error {
+	if buff, err := json.Marshal(v); err == nil {
+		w.Write(buff)
 		return nil
 	} else {
 		return err
 	}
 }
 
-func MarshalProtobuf(resp io.Writer, any interface{}) error {
-	typed, ok := any.(proto.Message)
+func MarshalYAML(w io.Writer, v interface{}) error {
+	if buff, err := yaml.Marshal(v); err == nil {
+		w.Write(buff)
+		return nil
+	} else {
+		return err
+	}
+}
+
+func MarshalProtobuf(w io.Writer, any interface{}) error {
+	v, ok := any.(proto.Message)
 	if !ok {
 		return ErrIncompatibleType
 	}
-	if buff, err := proto.Marshal(typed); err == nil {
-		resp.Write(buff)
+	if buff, err := proto.Marshal(v); err == nil {
+		w.Write(buff)
 		return nil
 	} else {
 		return err
@@ -68,6 +58,7 @@ var (
 		ContentTypeDefault:  MarshalJSON,
 		ContentTypeAny:      MarshalJSON,
 		ContentTypeJSON:     MarshalJSON,
+		ContentTypeYAML:     MarshalYAML,
 		ContentTypeProtobuf: MarshalProtobuf,
 		ContentTypePlain:    MarshalString,
 		ContentTypeHTML:     nil,

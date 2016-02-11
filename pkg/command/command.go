@@ -79,6 +79,7 @@ func Run(key string, verb Verb, args []string, w io.Writer) {
 	flagSet := flag.NewFlagSet(key, flag.ContinueOnError)
 	flagSet.Usage = func() {
 		verb.Help(os.Stderr)
+		flagSet.SetOutput(os.Stderr)
 		flagSet.PrintDefaults()
 	}
 	verb.RegisterFlags(flagSet)
@@ -86,7 +87,7 @@ func Run(key string, verb Verb, args []string, w io.Writer) {
 	if err != nil {
 		handle(err, flag.ExitOnError)
 	} else {
-		handle(verb.Run(flagSet.Args(), os.Stdout), policies[key])
+		handle(verb.Run(flagSet.Args(), w), policies[key])
 		handle(verb.Close(), policies[key])
 	}
 }
