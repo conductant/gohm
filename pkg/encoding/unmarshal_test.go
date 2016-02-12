@@ -46,9 +46,10 @@ func (suite *TestSuiteUnmarshal) TestUnmarshal(c *C) {
 	c.Assert(p2.Age, Equals, 21)
 
 	yamlInput := `
-   name : jane
+# Test data
+   name : jane  # the name
    age : 22
-   sex : F
+   sex : F  # not parsed
 `
 
 	err = UnmarshalYAML(bytes.NewBufferString(yamlInput), p)
