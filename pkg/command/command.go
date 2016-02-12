@@ -21,56 +21,56 @@ const (
 
 var (
 	lock     sync.Mutex
-	verbs    = map[string]func() (Verb, ErrorHandling){}
+	modules  = map[string]func() (Module, ErrorHandling){}
 	policies = map[string]flag.ErrorHandling{}
 
 	reparseLock  sync.Mutex
 	reparseFlags = map[reflect.Type]func(){}
 )
 
-func Register(verb string, commandFunc func() (Verb, ErrorHandling)) {
+func Register(module string, commandFunc func() (Module, ErrorHandling)) {
 	lock.Lock()
 	defer lock.Unlock()
-	verbs[verb] = commandFunc
-	policies[verb] = flag.PanicOnError // default
+	modules[module] = commandFunc
+	policies[module] = flag.PanicOnError // default
 }
 
-// Verb helps with building command-line applications of the form
-// <command> <verb> <flags...>
-type Verb interface {
+// Module helps with building command-line applications of the form
+// <command> <module> <flags...>
+type Module interface {
 	io.Closer
 
 	Help(io.Writer)
 	Run([]string, io.Writer) error
 }
 
-func ListVerbs() []string {
+func ListModules() []string {
 	lock.Lock()
 	defer lock.Unlock()
 
 	l := []string{}
-	for v, _ := range verbs {
+	for v, _ := range modules {
 		l = append(l, v)
 	}
 	sort.Strings(l)
 	return l
 }
 
-func VisitVerbs(f func(string, Verb)) {
+func VisitModules(f func(string, Module)) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	for k, vf := range verbs {
+	for k, vf := range modules {
 		v, _ := vf()
 		f(k, v)
 	}
 }
 
-func GetVerb(key string) (Verb, bool) {
+func GetModule(key string) (Module, bool) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	cf, has := verbs[key]
+	cf, has := modules[key]
 	if has {
 		v, p := cf()
 		policies[key] = flag.ErrorHandling(p)
@@ -79,45 +79,45 @@ func GetVerb(key string) (Verb, bool) {
 	return nil, false
 }
 
-func RunVerb(key string, verb Verb, args []string, w io.Writer) {
+func RunModule(key string, module Module, args []string, w io.Writer) {
 	flagSet := flag.NewFlagSet(key, flag.ContinueOnError)
 	flagSet.Usage = func() {
-		verb.Help(os.Stderr)
+		module.Help(os.Stderr)
 		flagSet.SetOutput(os.Stderr)
 		flagSet.PrintDefaults()
 	}
-	cf.RegisterFlags(key, verb, flagSet)
+	cf.RegisterFlags(key, module, flagSet)
 	err := flagSet.Parse(args)
 	if err != nil {
 		handle(err, flag.ExitOnError)
 	} else {
 
-		// We make it possible for the verb to ask to reparse the flags again.
+		// We make it possible for the module to ask to reparse the flags again.
 		// This gives us the ablility to layer flags on top of config data after
 		// config template has been applied to an object.
 		// We conveniently use function and closures to store copies of the flagSet and args.
 		reparseLock.Lock()
-		reparseFlags[reflect.TypeOf(verb)] = func() {
+		reparseFlags[reflect.TypeOf(module)] = func() {
 			// this should be fine here since the first time we parsed ok.
 			flagSet.Parse(args)
 		}
 		reparseLock.Unlock()
 
-		handle(verb.Run(flagSet.Args(), w), policies[key])
-		handle(verb.Close(), policies[key])
+		handle(module.Run(flagSet.Args(), w), policies[key])
+		handle(module.Close(), policies[key])
 	}
 }
 
-// Re-apply the flag settings to the verb that was bound earlier.  This is done by matching
-// the type of the verb and use the bound flagSet and reparse it again.
-func ReparseFlags(verb Verb) {
+// Re-apply the flag settings to the module that was bound earlier.  This is done by matching
+// the type of the module and use the bound flagSet and reparse it again.
+func ReparseFlags(module Module) {
 	reparseLock.Lock()
 	defer reparseLock.Unlock()
-	if reparse, has := reparseFlags[reflect.TypeOf(verb)]; has {
+	if reparse, has := reparseFlags[reflect.TypeOf(module)]; has {
 		reparse()
 		return
 	} else {
-		panic(fmt.Errorf("Verb not registered for flag parsing."))
+		panic(fmt.Errorf("Module not registered for flag parsing."))
 	}
 }
 
@@ -128,7 +128,9 @@ func handle(err error, handling flag.ErrorHandling) {
 		case flag.PanicOnError:
 			panic(err)
 		case flag.ExitOnError:
-			fmt.Fprintf(os.Stderr, "Error:", err)
+			if err != flag.ErrHelp {
+				fmt.Fprintf(os.Stderr, "Error:", err.Error())
+			}
 			os.Exit(2)
 		}
 	}

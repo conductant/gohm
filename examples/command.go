@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	command.Register("test", func() (command.Verb, command.ErrorHandling) {
+	command.Register("test", func() (command.Module, command.ErrorHandling) {
 		return &test{
 			String: "This is the default for the flag",
 			Bool:   true,

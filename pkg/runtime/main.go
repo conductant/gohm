@@ -14,7 +14,7 @@ import (
 
 // Run the command line main().  Note that the client main go program must import the
 // necessary packages (e.g. import _ pkg/a/b/c) where the packages will register the
-// verb supported by the program.
+// module supported by the program.
 func Main() {
 
 	buildInfo := version.BuildInfo()
@@ -22,7 +22,7 @@ func Main() {
 		fmt.Fprintf(os.Stderr, "%s\n", buildInfo.Notice())
 		fmt.Fprintf(os.Stderr, "FLAGS:\n\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "VERBS:\n\n")
+		fmt.Fprintf(os.Stderr, "MODULES:\n\n")
 		showHelp(os.Stderr)
 	}
 
@@ -42,28 +42,28 @@ func Main() {
 		args = []string{}
 	}
 
-	verb, has := command.GetVerb(key)
+	module, has := command.GetModule(key)
 	if !has {
 		fmt.Fprintf(os.Stderr, "%s\n\n", os.Args[0])
 		showHelp(os.Stderr)
 		return
 	}
-	command.RunVerb(key, verb, args, os.Stdout)
+	command.RunModule(key, module, args, os.Stdout)
 }
 
 func showHelp(out io.Writer) {
-	command.VisitVerbs(func(v string, verb command.Verb) {
+	command.VisitModules(func(v string, module command.Module) {
 		fmt.Fprintf(out, "%s\n", v)
 
 		buff := new(bytes.Buffer)
-		verb.Help(buff)
+		module.Help(buff)
 
 		for _, line := range strings.Split(buff.String(), "\n") {
 			fmt.Fprintf(out, "  %s\n", line)
 		}
 		// show flags
 		fs := flag.NewFlagSet(v, flag.PanicOnError)
-		cf.RegisterFlags(v, verb, fs)
+		cf.RegisterFlags(v, module, fs)
 		fs.PrintDefaults()
 	})
 }

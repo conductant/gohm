@@ -34,7 +34,7 @@ var (
 )
 
 func init() {
-	command.Register("version", func() (command.Verb, command.ErrorHandling) {
+	command.Register("version", func() (command.Module, command.ErrorHandling) {
 		return BuildInfo(), command.PanicOnError
 	})
 }

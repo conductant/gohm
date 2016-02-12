@@ -51,7 +51,7 @@ type person struct {
 	Height    int64  `json:"-" yaml:"-" flag:"height,The height"`
 }
 
-// Implements Verb
+// Implements Module
 func (p *person) Close() error {
 	return nil
 }
@@ -67,7 +67,7 @@ func (p *person) Run([]string, io.Writer) error {
 // Second, the config is fetched and unmarshalled to the object.
 // Finally, we parse again so that additional flag values are overlaid onto the struct.
 func (suite *TestSuiteCommand) TestCommandReparseFlag(c *C) {
-	Register("person", func() (Verb, ErrorHandling) {
+	Register("person", func() (Module, ErrorHandling) {
 		return new(person), PanicOnError
 	})
 
@@ -89,7 +89,7 @@ not-a-field: hello
 		Employee: true,
 	}
 
-	RunVerb("person", p, strings.Split("--config_url=http://localhost:7986/secure --age=35", " "), nil)
+	RunModule("person", p, strings.Split("--config_url=http://localhost:7986/secure --age=35", " "), nil)
 
 	c.Assert(p.ConfigUrl, Equals, "http://localhost:7986/secure")
 	c.Assert(p.Employee, Equals, true)
