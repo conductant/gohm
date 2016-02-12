@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"github.com/conductant/gohm/pkg/command"
 	"github.com/conductant/gohm/pkg/runtime"
@@ -13,24 +12,20 @@ import (
 func init() {
 	command.Register("test", func() (command.Verb, command.ErrorHandling) {
 		return &test{
-			Bool: true,
+			String: "This is the default for the flag",
+			Bool:   true,
 		}, command.PanicOnError
 	})
 }
 
 type test struct {
-	String string
-	Int    int
+	String string `flag:"s,A string flag"`
+	Int    int    `flag:"i,An int flag"`
 	Bool   bool
 }
 
 func (t *test) Help(w io.Writer) {
 	fmt.Fprintln(w, "A simple test module")
-}
-
-func (t *test) RegisterFlags(fs *flag.FlagSet) {
-	fs.StringVar(&t.String, "s", "default", "A string flag")
-	fs.IntVar(&t.Int, "i", 10, "An int flag")
 }
 
 func (t *test) Run(args []string, w io.Writer) error {

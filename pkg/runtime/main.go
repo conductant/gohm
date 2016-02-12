@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/conductant/gohm/pkg/command"
+	cf "github.com/conductant/gohm/pkg/flag"
 	"github.com/conductant/gohm/pkg/version"
 	"io"
 	"os"
@@ -62,7 +63,7 @@ func showHelp(out io.Writer) {
 		}
 		// show flags
 		fs := flag.NewFlagSet(v, flag.PanicOnError)
-		verb.RegisterFlags(fs)
+		cf.RegisterFlags(v, verb, fs)
 		fs.PrintDefaults()
 	})
 }

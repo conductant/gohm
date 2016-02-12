@@ -3,6 +3,7 @@ package command
 import (
 	"flag"
 	"fmt"
+	cf "github.com/conductant/gohm/pkg/flag"
 	"io"
 	"os"
 	"sort"
@@ -36,7 +37,6 @@ type Verb interface {
 	io.Closer
 
 	Help(io.Writer)
-	RegisterFlags(*flag.FlagSet)
 	Run([]string, io.Writer) error
 }
 
@@ -82,7 +82,7 @@ func Run(key string, verb Verb, args []string, w io.Writer) {
 		flagSet.SetOutput(os.Stderr)
 		flagSet.PrintDefaults()
 	}
-	verb.RegisterFlags(flagSet)
+	cf.RegisterFlags(key, verb, flagSet)
 	err := flagSet.Parse(args)
 	if err != nil {
 		handle(err, flag.ExitOnError)
