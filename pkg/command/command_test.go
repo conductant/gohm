@@ -41,12 +41,14 @@ func (suite *TestSuiteCommand) SetUpSuite(c *C) {
 func (suite *TestSuiteCommand) TearDownSuite(c *C) {
 }
 
+// Note that we only allow name and age to have json / yaml representations as well as flag settings.
+// ConfigUrl is only settable via flag.
 type person struct {
-	ConfigUrl string `flag:"config_url,The config url"`
+	ConfigUrl string `json:"-" yaml:"-" flag:"config_url,The config url"`
 	Name      string `json:"name,omitempty" yaml:"name,omitempty" flag:"name,The name"`
 	Age       int    `json:"age,omitempty" yaml:"age,omitempty" flag:"age,The age"`
-	Employee  bool   `flag:"True if employee"`
-	Height    int64  `flag:"height,The height"`
+	Employee  bool   `json:"-" yaml:"-" flag:"True if employee"`
+	Height    int64  `json:"-" yaml:"-" flag:"height,The height"`
 }
 
 // Implements Verb
@@ -79,6 +81,7 @@ func (suite *TestSuiteCommand) TestCommandReparseFlag(c *C) {
 name: joe
 age: 21
 employee: false
+not-a-field: hello
 `
 
 	p := &person{
@@ -89,6 +92,8 @@ employee: false
 	RunVerb("person", p, strings.Split("--config_url=http://localhost:7986/secure --age=35", " "), nil)
 
 	c.Assert(p.ConfigUrl, Equals, "http://localhost:7986/secure")
+	c.Assert(p.Employee, Equals, true)
+
 	data, err := resource.Fetch(ctx, p.ConfigUrl)
 	c.Assert(err, IsNil)
 	c.Log(string(data))
@@ -96,10 +101,10 @@ employee: false
 	c.Assert(err, IsNil)
 	c.Assert(p.Age, Equals, 21)
 	c.Assert(p.Name, Equals, "joe")
-	c.Assert(p.Employee, Equals, false)
+	c.Assert(p.Employee, Equals, true) // we don't expect the yaml to change the field.
 
 	ReparseFlags(p)
 	c.Assert(p.Age, Equals, 35) // This is overwritten by the flag value
 	c.Assert(p.Name, Equals, "joe")
-	c.Assert(p.Employee, Equals, false)
+	c.Assert(p.Employee, Equals, true)
 }
