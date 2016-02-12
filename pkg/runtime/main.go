@@ -48,7 +48,7 @@ func Main() {
 		showHelp(os.Stderr)
 		return
 	}
-	command.Run(key, verb, args, os.Stdout)
+	command.RunVerb(key, verb, args, os.Stdout)
 }
 
 func showHelp(out io.Writer) {
