@@ -10,6 +10,10 @@ type Duration struct {
 	time.Duration
 }
 
+func (d *Duration) String() string {
+	return d.Duration.String()
+}
+
 func (d *Duration) UnmarshalJSON(b []byte) (err error) {
 	if b[0] == '"' {
 		sd := string(b[1 : len(b)-1])
@@ -26,4 +30,17 @@ func (d *Duration) UnmarshalJSON(b []byte) (err error) {
 
 func (d Duration) MarshalJSON() (b []byte, err error) {
 	return []byte(fmt.Sprintf(`"%s"`, d.String())), nil
+}
+
+func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
+	stringBuff := ""
+	err = unmarshal(&stringBuff)
+	if err != nil {
+		return
+	}
+	return d.UnmarshalJSON([]byte(fmt.Sprintf("\"%s\"", stringBuff))) // need to quote
+}
+
+func (d Duration) MarshalYAML() (v interface{}, err error) {
+	return d.String(), nil
 }
