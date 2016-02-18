@@ -46,6 +46,8 @@ func Apply(tmpl []byte, data interface{}, funcs ...template.FuncMap) ([]byte, er
 	return buff.Bytes(), err
 }
 
+// Execute a template at the given uri/url.  The data to be applied to the template should
+// be placed in the context via the ContextPutTemplateData() function.
 func Execute(ctx context.Context, uri string, funcs ...template.FuncMap) ([]byte, error) {
 	data := ContextGetTemplateData(ctx)
 	fm := DefaultFuncMap(ctx)
@@ -53,6 +55,7 @@ func Execute(ctx context.Context, uri string, funcs ...template.FuncMap) ([]byte
 		fm = MergeFuncMaps(fm, opt)
 	}
 
+	// THe url itself can be a template that uses the state of the context object as vars.
 	url := uri
 	if applied, err := Apply([]byte(uri), data, fm); err != nil {
 		return nil, err

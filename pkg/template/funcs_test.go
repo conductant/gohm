@@ -99,6 +99,17 @@ func (suite *TestSuiteFuncs) TestContentInline(c *C) {
 	c.Assert(out, Equals, in)
 }
 
+func (suite *TestSuiteFuncs) TestEscapeTemplate(c *C) {
+	f := EscapeTemplate(context.Background())
+	escape, ok := f.(func(string) (string, error))
+	c.Assert(ok, Equals, true)
+
+	in := "\"{{.var1}}/{{.var2}}\""
+	out, err := escape(in)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, "{{template \""+in+"\"}}")
+}
+
 func (suite *TestSuiteFuncs) TestContentToFileWithAuthToken(c *C) {
 	token := auth.NewToken(1*time.Hour).Add("secure", 1)
 	header := http.Header{}

@@ -54,20 +54,34 @@ func init() {
 	RegisterFunc("sh", ExecuteShell)
 }
 
+func IsUrl(s string) bool {
+	return strings.Index(s, "://") > 0
+}
+
+// TODO - Add support for interpreting URL string so we can pull from zk or http
 func ParseHost(ctx context.Context) interface{} {
 	return func(hostport string) (string, error) {
-		host, _, err := net.SplitHostPort(hostport)
-		return host, err
+		if IsUrl(hostport) {
+			return hostport, ErrNotImplemented
+		} else {
+			host, _, err := net.SplitHostPort(hostport)
+			return host, err
+		}
 	}
 }
 
+// TODO - Add support for interpreting URL string so we can pull from zk or http
 func ParsePort(ctx context.Context) interface{} {
 	return func(hostport string) (int, error) {
-		_, port, err := net.SplitHostPort(hostport)
-		if err != nil {
-			return 0, err
+		if IsUrl(hostport) {
+			return 0, ErrNotImplemented
+		} else {
+			_, port, err := net.SplitHostPort(hostport)
+			if err != nil {
+				return 0, err
+			}
+			return strconv.Atoi(port)
 		}
-		return strconv.Atoi(port)
 	}
 }
 

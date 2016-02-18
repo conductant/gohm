@@ -9,5 +9,5 @@ type NotSupported struct {
 }
 
 func (this *NotSupported) Error() string {
-	return fmt.Sprintf("not-supported: %s", this.Protocol)
+	return fmt.Sprintf("err-resource-not-supported: %s", this.Protocol)
 }

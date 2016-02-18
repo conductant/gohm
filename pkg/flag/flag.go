@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+// Allocate a flagset, bind it to val and return the flag set.
+func GetFlagSet(name string, val interface{}) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.PanicOnError)
+	RegisterFlags(name, val, fs)
+	return fs
+}
+
 // Register fields in the given struct that have the tag `flag:"name,desc"`.
 // Nested structs are supported as long as the field is a struct value field and not pointer to a struct.
 // Exception to this is the use of StringList which needs to be a pointer.  The StringList type implements
@@ -19,6 +26,11 @@ func RegisterFlags(name string, val interface{}, fs *flag.FlagSet) {
 	v := reflect.Indirect(reflect.ValueOf(val)) // the actual value of val
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+
+		if field.Anonymous && field.Type.Kind() == reflect.Struct {
+			RegisterFlags(name+"."+field.Name, v.Field(i).Addr().Interface(), fs)
+			continue
+		}
 
 		// See https://golang.org/ref/spec#Uniqueness_of_identifiers
 		exported := field.PkgPath == ""

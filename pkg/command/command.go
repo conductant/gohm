@@ -3,7 +3,7 @@ package command
 import (
 	"flag"
 	"fmt"
-	cf "github.com/conductant/gohm/pkg/flag"
+	gflag "github.com/conductant/gohm/pkg/flag"
 	"io"
 	"os"
 	"reflect"
@@ -86,7 +86,7 @@ func RunModule(key string, module Module, args []string, w io.Writer) {
 		flagSet.SetOutput(os.Stderr)
 		flagSet.PrintDefaults()
 	}
-	cf.RegisterFlags(key, module, flagSet)
+	gflag.RegisterFlags(key, module, flagSet)
 	err := flagSet.Parse(args)
 	if err != nil {
 		handle(err, flag.ExitOnError)
@@ -103,8 +103,12 @@ func RunModule(key string, module Module, args []string, w io.Writer) {
 		}
 		reparseLock.Unlock()
 
-		handle(module.Run(flagSet.Args(), w), policies[key])
-		handle(module.Close(), policies[key])
+		policy, has := policies[key]
+		if !has {
+			policy = flag.PanicOnError
+		}
+		handle(module.Run(flagSet.Args(), w), policy)
+		handle(module.Close(), policy)
 	}
 }
 
