@@ -42,8 +42,6 @@ func (suite *TestSuiteShell) TestRunShell(c *C) {
 
 	var stdout io.Reader
 	var err error
-	_, err = shell("echo '***********'")
-	c.Assert(err, IsNil)
 
 	stdout, err = shell("echo foo | sed -e 's/f/g/g'")
 	sed := toString(c, stdout)

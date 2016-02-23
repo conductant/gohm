@@ -17,7 +17,6 @@ func init() {
 
 func SanitizeUrl(url url.URL) url.URL {
 	if len(url.Host) > 0 {
-		glog.Infoln("Host list:", url.Host)
 		return url
 	} else {
 		glog.Infoln("No hosts provided. Using environment variable", EnvZkHosts, "or default.")

@@ -2,8 +2,13 @@ package registry
 
 import (
 	"fmt"
+	"net/url"
 	p "path"
 	"strings"
+)
+
+var (
+	EmptyPath = path("")
 )
 
 type Path interface {
@@ -23,6 +28,10 @@ func NewPath(s string, parts ...string) Path {
 
 func NewPathf(format string, args ...interface{}) Path {
 	return path(p.Clean(fmt.Sprintf(format, args...)))
+}
+
+func FromUrl(url *url.URL) Path {
+	return path(url.Path)
 }
 
 func (this path) String() string {

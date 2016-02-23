@@ -31,7 +31,6 @@ var (
 func init() {
 	Register(ResourceHttp, HttpResource)
 	Register(ResourceHttps, HttpResource)
-	Register(ResourceString, StringResource)
 	Register(ResourceFile, FileResource)
 }
 
@@ -95,11 +94,6 @@ func HttpResource(ctx context.Context, url string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	return content, err
-}
-
-func StringResource(ctx context.Context, url string) ([]byte, error) {
-	content := url[len("string://"):]
-	return []byte(content), nil
 }
 
 func FileResource(ctx context.Context, url string) ([]byte, error) {

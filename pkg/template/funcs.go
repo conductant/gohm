@@ -47,6 +47,7 @@ func MergeFuncMaps(a, b template.FuncMap) template.FuncMap {
 }
 
 func init() {
+	RegisterFunc("hostport", ParseHostPort)
 	RegisterFunc("host", ParseHost)
 	RegisterFunc("port", ParsePort)
 	RegisterFunc("inline", ContentInline)
@@ -56,6 +57,18 @@ func init() {
 
 func IsUrl(s string) bool {
 	return strings.Index(s, "://") > 0
+}
+
+// TODO - Add support for interpreting URL string so we can pull from zk or http
+func ParseHostPort(ctx context.Context) interface{} {
+	return func(hostport string) (string, error) {
+		if IsUrl(hostport) {
+			return hostport, ErrNotImplemented
+		} else {
+			host, port, err := net.SplitHostPort(hostport)
+			return host + ":" + port, err
+		}
+	}
 }
 
 // TODO - Add support for interpreting URL string so we can pull from zk or http

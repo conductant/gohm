@@ -34,12 +34,12 @@ func (suite *TestSuiteFuncs) SetUpSuite(c *C) {
 		WithAuth(server.Auth{VerifyKeyFunc: testutil.PublicKeyFunc}.Init()).
 		Route(server.Endpoint{UrlRoute: "/content", HttpMethod: server.GET, AuthScope: server.AuthScopeNone}).
 		To(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-		resp.Write([]byte(suite.content))
-	}).
+			resp.Write([]byte(suite.content))
+		}).
 		Route(server.Endpoint{UrlRoute: "/secure", HttpMethod: server.GET, AuthScope: server.AuthScope("secure")}).
 		To(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-		resp.Write([]byte(suite.content))
-	}).Start()
+			resp.Write([]byte(suite.content))
+		}).Start()
 
 	suite.contentFile = os.TempDir() + "/test-content"
 	err := ioutil.WriteFile(suite.contentFile, []byte(contentFileContent), 0644)
@@ -50,6 +50,27 @@ func (suite *TestSuiteFuncs) TearDownSuite(c *C) {
 	suite.stop <- 1
 	<-suite.stopped
 	os.Remove(suite.contentFile)
+}
+
+func (suite *TestSuiteFuncs) TestParseHostPort(c *C) {
+	f := ParseHostPort(context.Background())
+	parseHostPort, ok := f.(func(string) (string, error))
+	c.Assert(ok, Equals, true)
+
+	host, err := parseHostPort("localhost:5050")
+	c.Assert(err, IsNil)
+	c.Assert(host, Equals, "localhost:5050")
+
+	host, err = parseHostPort("google.com:5050")
+	c.Assert(err, IsNil)
+	c.Assert(host, Equals, "google.com:5050")
+
+	host, err = parseHostPort("10.30.0.23:5050")
+	c.Assert(err, IsNil)
+	c.Assert(host, Equals, "10.30.0.23:5050")
+
+	host, err = parseHostPort("10.30.0.23")
+	c.Assert(err, Not(IsNil))
 }
 
 func (suite *TestSuiteFuncs) TestParseHost(c *C) {
@@ -89,25 +110,22 @@ func (suite *TestSuiteFuncs) TestParsePort(c *C) {
 }
 
 func (suite *TestSuiteFuncs) TestContentInline(c *C) {
-	f := ContentInline(context.Background())
+	token := auth.NewToken(1*time.Hour).Add("secure", 1)
+	header := http.Header{}
+	token.SetHeader(header, testutil.PrivateKeyFunc)
+	ctx := resource.ContextPutHttpHeader(context.Background(), header)
+
+	// set up the content
+	suite.content = "this is a test"
+
+	f := ContentInline(ctx)
 	inline, ok := f.(func(string) (string, error))
 	c.Assert(ok, Equals, true)
 
-	in := "this is a test.\n"
-	out, err := inline("string://" + in)
+	out, err := inline(fmt.Sprintf("http://localhost:%d/secure", suite.port))
 	c.Assert(err, IsNil)
-	c.Assert(out, Equals, in)
-}
-
-func (suite *TestSuiteFuncs) TestEscapeTemplate(c *C) {
-	f := EscapeTemplate(context.Background())
-	escape, ok := f.(func(string) (string, error))
-	c.Assert(ok, Equals, true)
-
-	in := "\"{{.var1}}/{{.var2}}\""
-	out, err := escape(in)
-	c.Assert(err, IsNil)
-	c.Assert(out, Equals, "{{template \""+in+"\"}}")
+	c.Log("out=", out)
+	c.Assert(out, Equals, suite.content)
 }
 
 func (suite *TestSuiteFuncs) TestContentToFileWithAuthToken(c *C) {
