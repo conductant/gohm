@@ -13,6 +13,9 @@ import (
 func GetFlagSet(name string, val interface{}) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.PanicOnError)
 	RegisterFlags(name, val, fs)
+	fs.Usage = func() {
+		fs.PrintDefaults()
+	}
 	return fs
 }
 

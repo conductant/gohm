@@ -6,31 +6,36 @@ import (
 	"net/http"
 )
 
-func Unmarshal(resp http.ResponseWriter, req *http.Request, value interface{}) {
+func Unmarshal(resp http.ResponseWriter, req *http.Request, value interface{}) error {
 	defer req.Body.Close()
 	contentType := ContentTypeForRequest(req)
 	if t, err := encoding.ContentTypeFromString(contentType); err == nil {
 		err := encoding.Unmarshal(t, req.Body, value)
 		if err != nil {
 			DefaultErrorRenderer(resp, req, err.Error(), http.StatusInternalServerError)
+			return err
 		}
 	} else {
 		DefaultErrorRenderer(resp, req, ErrBadContentType.Error(), http.StatusBadRequest)
+		return err
 	}
+	return nil
 }
 
-func Marshal(resp http.ResponseWriter, req *http.Request, value interface{}) {
+func Marshal(resp http.ResponseWriter, req *http.Request, value interface{}) error {
 	contentType := ContentTypeForResponse(req)
 	if t, err := encoding.ContentTypeFromString(contentType); err == nil {
 		buff := new(bytes.Buffer)
 		err := encoding.Marshal(t, buff, value)
 		if err != nil {
 			DefaultErrorRenderer(resp, req, err.Error(), http.StatusInternalServerError)
+			return err
 		}
 		resp.Header().Add("Content-Type", t.String())
 		resp.Write(buff.Bytes())
 	} else {
 		DefaultErrorRenderer(resp, req, ErrBadContentType.Error(), http.StatusBadRequest)
+		return err
 	}
 }
 
