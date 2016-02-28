@@ -37,6 +37,7 @@ func Marshal(resp http.ResponseWriter, req *http.Request, value interface{}) err
 		DefaultErrorRenderer(resp, req, ErrBadContentType.Error(), http.StatusBadRequest)
 		return err
 	}
+	return nil
 }
 
 func ContentTypeForRequest(req *http.Request) string {
