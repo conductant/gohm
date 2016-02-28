@@ -1,6 +1,6 @@
 #!/bin/bash
 
-: ${PROJECT:=`pwd`}
+: ${PROJECT:=`basename $PWD`}
 echo "Current directory is $(pwd). Project=${PROJECT}"
 
 if [ ! -d "$HOME/go/src/$PROJECT" ]; then
