@@ -1,7 +1,7 @@
 package zk
 
 import (
-	"github.com/conductant/gohm/pkg/registry"
+	"github.com/conductant/gohm/pkg/namespace"
 	"github.com/conductant/gohm/pkg/resource"
 	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
@@ -25,12 +25,12 @@ func (suite *TestSuiteSource) TearDownSuite(c *C) {
 func (suite *TestSuiteSource) TestSourceUsage(c *C) {
 	ctx := ContextPutTimeout(context.Background(), 1*time.Minute)
 	url := "zk://" + strings.Join(Hosts(), ",")
-	zk, err := registry.Dial(ctx, url)
+	zk, err := namespace.Dial(ctx, url)
 	c.Assert(err, IsNil)
 	c.Log(zk)
 	defer zk.Close()
 
-	root := registry.NewPathf("/unit-test/zk/%d/source", time.Now().Unix())
+	root := namespace.NewPathf("/unit-test/zk/%d/source", time.Now().Unix())
 	value := []byte("test-value-12345")
 	_, err = zk.Put(root, value, false)
 	c.Assert(err, IsNil)

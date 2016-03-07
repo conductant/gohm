@@ -2,7 +2,7 @@ package zk
 
 import (
 	"fmt"
-	. "github.com/conductant/gohm/pkg/registry"
+	. "github.com/conductant/gohm/pkg/namespace"
 	. "github.com/conductant/gohm/pkg/store"
 	"github.com/golang/glog"
 	"golang.org/x/net/context"

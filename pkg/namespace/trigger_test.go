@@ -1,4 +1,4 @@
-package registry
+package namespace
 
 import (
 	. "gopkg.in/check.v1"

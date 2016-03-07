@@ -3,7 +3,7 @@ package zk
 import (
 	"fmt"
 	"github.com/conductant/gohm/pkg/auth"
-	"github.com/conductant/gohm/pkg/registry"
+	"github.com/conductant/gohm/pkg/namespace"
 	"github.com/conductant/gohm/pkg/resource"
 	"github.com/conductant/gohm/pkg/server"
 	"github.com/conductant/gohm/pkg/template"
@@ -46,13 +46,13 @@ func (suite *TestSuiteTemplate) TearDownSuite(c *C) {
 func (suite *TestSuiteTemplate) TestGet(c *C) {
 	// Write something
 	url := "zk://" + strings.Join(Hosts(), ",")
-	zk, err := registry.Dial(context.Background(), url)
+	zk, err := namespace.Dial(context.Background(), url)
 	c.Assert(err, IsNil)
 	c.Log(zk)
 	defer zk.Close()
 
 	k := fmt.Sprintf("/unit-test/registry/template/%d/test", time.Now().Unix())
-	p := registry.NewPath(k)
+	p := namespace.NewPath(k)
 	v := []byte("test")
 	_, err = zk.Put(p, v, false)
 	c.Assert(err, IsNil)
@@ -74,13 +74,13 @@ func (suite *TestSuiteTemplate) TestGet(c *C) {
 func (suite *TestSuiteTemplate) TestList(c *C) {
 	// Write something
 	url := "zk://" + strings.Join(Hosts(), ",")
-	zk, err := registry.Dial(context.Background(), url)
+	zk, err := namespace.Dial(context.Background(), url)
 	c.Assert(err, IsNil)
 	c.Log(zk)
 	defer zk.Close()
 
 	k := "/unit-test/registry/template/test"
-	p := registry.NewPath(k)
+	p := namespace.NewPath(k)
 
 	err = zk.Delete(p)
 
@@ -122,13 +122,13 @@ func (suite *TestSuiteTemplate) TestList(c *C) {
 func (suite *TestSuiteTemplate) TestListDeref(c *C) {
 	// Write something
 	url := "zk://" + strings.Join(Hosts(), ",")
-	zk, err := registry.Dial(context.Background(), url)
+	zk, err := namespace.Dial(context.Background(), url)
 	c.Assert(err, IsNil)
 	c.Log(zk)
 	defer zk.Close()
 
 	k := "/unit-test/registry/template/test-deref"
-	p := registry.NewPath(k)
+	p := namespace.NewPath(k)
 
 	err = zk.Delete(p)
 

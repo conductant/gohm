@@ -1,4 +1,4 @@
-package registry
+package namespace
 
 import (
 	"golang.org/x/net/context"

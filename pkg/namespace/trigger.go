@@ -1,4 +1,4 @@
-package registry
+package namespace
 
 // Special marker interface implemented only by Create, Change, Delete, and Members
 type kind int
