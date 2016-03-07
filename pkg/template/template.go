@@ -97,8 +97,14 @@ func Apply2(tmpl []byte, data interface{}, funcs ...template.FuncMap) ([]byte, e
 
 	vars := make(map[string]interface{})
 	for _, ct := range t.Templates() {
+		if t.Name() == ct.Name() {
+			// Do not process the main template.  Save that for the next phase
+			// where `my` variables are supported.
+			continue
+		}
+
 		body := new(bytes.Buffer)
-		err := ct.Execute(body, nil)
+		err := ct.Execute(body, data)
 		if err != nil {
 			return nil, err
 		}
@@ -109,6 +115,8 @@ func Apply2(tmpl []byte, data interface{}, funcs ...template.FuncMap) ([]byte, e
 			for k, v := range m {
 				vars[ct.Name()+"."+k] = v
 			}
+		} else {
+			return nil, err
 		}
 	}
 

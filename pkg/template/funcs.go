@@ -53,6 +53,7 @@ func init() {
 	RegisterFunc("inline", ContentInline)
 	RegisterFunc("file", ContentToFile)
 	RegisterFunc("sh", ExecuteShell)
+	RegisterFunc("env", GetEnvironmentVariable)
 }
 
 func IsUrl(s string) bool {
@@ -95,6 +96,12 @@ func ParsePort(ctx context.Context) interface{} {
 			}
 			return strconv.Atoi(port)
 		}
+	}
+}
+
+func GetEnvironmentVariable(ctx context.Context) interface{} {
+	return func(key string) (string, error) {
+		return os.Getenv(key), nil
 	}
 }
 
