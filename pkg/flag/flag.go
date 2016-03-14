@@ -130,13 +130,138 @@ func RegisterFlags(name string, val interface{}, fs *flag.FlagSet) {
 				default:
 					// We only register if the field is a concrete vale and not a pointer
 					// since we don't automatically allocate zero value structs to fill the field slot.
-					if field.Type.Kind() == reflect.Struct {
+					switch field.Type.Kind() {
+					case reflect.Struct:
 						RegisterFlags(f, ptr, fs)
+					case reflect.Slice:
+						// TODO - should refactor to use the generic sliceProxy instead of the typed slice proxies above.
+						et := field.Type.Elem()
+						proxy := &sliceProxy{
+							fieldType: field.Type,
+							elemType:  et,
+							slice:     ptr,
+							defaults:  reflect.ValueOf(fv).Len() > 0,
+							toString: func(v interface{}) string {
+								return fmt.Sprint("%v", v)
+							},
+						}
+						fs.Var(proxy, f, d)
+						switch {
+						// Checking for string is placed here first because other types are
+						// convertible to string as well.
+						case reflect.TypeOf(string("")).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								return s, nil
+							}
+							proxy.toString = func(v interface{}) string {
+								return v.(string)
+							}
+						case reflect.TypeOf(bool(true)).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								value, err := strconv.ParseBool(s)
+								if err != nil {
+									return false, err
+								}
+								return value, nil
+							}
+						case reflect.TypeOf(float64(1.)).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								value, err := strconv.ParseFloat(s, 64)
+								if err != nil {
+									return float64(0), err
+								}
+								return value, nil
+							}
+							proxy.toString = func(v interface{}) string {
+								return v.(string)
+							}
+						case reflect.TypeOf(int(1)).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								value, err := strconv.Atoi(s)
+								if err != nil {
+									return int(0), err
+								}
+								return value, nil
+							}
+						case reflect.TypeOf(int64(1)).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								value, err := strconv.ParseInt(s, 10, 64)
+								if err != nil {
+									return int64(0), err
+								}
+								return value, nil
+							}
+							proxy.toString = func(v interface{}) string {
+								return v.(string)
+							}
+						case reflect.TypeOf(uint(1)).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								value, err := strconv.ParseUint(s, 10, 32)
+								if err != nil {
+									return uint(0), err
+								}
+								return value, nil
+							}
+						case reflect.TypeOf(uint64(1)).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								value, err := strconv.ParseUint(s, 10, 64)
+								if err != nil {
+									return uint64(0), err
+								}
+								return value, nil
+							}
+						case reflect.TypeOf(time.Second).ConvertibleTo(et):
+							proxy.fromString = func(s string) (interface{}, error) {
+								value, err := time.ParseDuration(s)
+								if err != nil {
+									return false, err
+								}
+								return value, nil
+							}
+						}
 					}
 				}
 			}
 		}
 	}
+}
+
+var (
+	stringType = reflect.TypeOf("")
+)
+
+// For a list of types that are convertible to string
+type sliceProxy struct {
+	fieldType  reflect.Type
+	elemType   reflect.Type                      // the element type
+	fromString func(string) (interface{}, error) // conversion from string
+	toString   func(interface{}) string          // to string
+	slice      interface{}                       // the Pointer to the slice
+	defaults   bool                              // set to true on first time Set is called.
+}
+
+func (this *sliceProxy) Set(value string) error {
+	v, err := this.fromString(value)
+	if err != nil {
+		return err
+	}
+	newElement := reflect.ValueOf(reflect.ValueOf(v).Convert(this.elemType).Interface())
+	if this.defaults {
+		reflect.ValueOf(this.slice).Elem().Set(reflect.Zero(this.fieldType))
+		this.defaults = false
+	}
+	reflect.ValueOf(this.slice).Elem().Set(reflect.Append(reflect.ValueOf(this.slice).Elem(), newElement))
+	return nil
+}
+func (this *sliceProxy) String() string {
+	list := []string{}
+	for i := 0; i < reflect.ValueOf(this.slice).Elem().Len(); i++ {
+		str := this.toString(reflect.ValueOf(this.slice).Elem().Index(i).Interface())
+		list = append(list, str)
+		// ev := reflect.ValueOf(this.slice).Elem().Index(i).Convert(stringType).Interface()
+		// list = append(list, ev.(string))
+	}
+	return strings.Join(list, ",")
 }
 
 // Supports default values.  This means that if the slice was initialized with value, setting
