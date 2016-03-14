@@ -21,6 +21,14 @@
                 )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Navigating windows:  Use M-<arrow_key> (command key)
+(windmove-default-keybindings)
+(global-set-key [M-left] 'windmove-left)          ; move to left window
+(global-set-key [M-right] 'windmove-right)        ; move to right window
+(global-set-key [M-up] 'windmove-up)              ; move to upper window
+(global-set-key [M-down] 'windmove-down)          ; move to lower window
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Useful for refreshing buffers after git pull
 (defun revert-all-buffers ()
     "Refreshes all open buffers from their respective files."
