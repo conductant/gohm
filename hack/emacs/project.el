@@ -21,12 +21,12 @@
                 )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Navigating windows:  Use M-<arrow_key> (command key)
+; Navigating windows:  Use option-<arrow_key>
 (windmove-default-keybindings)
-(global-set-key [M-left] 'windmove-left)          ; move to left window
-(global-set-key [M-right] 'windmove-right)        ; move to right window
-(global-set-key [M-up] 'windmove-up)              ; move to upper window
-(global-set-key [M-down] 'windmove-down)          ; move to lower window
+(global-set-key [s-left] 'windmove-left)          ; move to left window
+(global-set-key [s-right] 'windmove-right)        ; move to right window
+(global-set-key [s-up] 'windmove-up)              ; move to upper window
+(global-set-key [s-down] 'windmove-down)          ; move to lower window
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Useful for refreshing buffers after git pull
