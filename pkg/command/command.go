@@ -35,6 +35,32 @@ func Register(module string, commandFunc func() (Module, ErrorHandling)) {
 	policies[module] = flag.PanicOnError // default
 }
 
+func RegisterFunc(module string, obj interface{}, run func([]string, io.Writer) error, help ...func(io.Writer)) {
+	lock.Lock()
+	defer lock.Unlock()
+	h := func(w io.Writer) {
+		fmt.Fprintln(w, "no help provided")
+	}
+	if len(help) > 0 {
+		h = help[0]
+	}
+
+	modules[module] = func() (Module, ErrorHandling) {
+		return &module_adapter{obj: obj, f: run, h: h}, PanicOnError
+	}
+	policies[module] = flag.PanicOnError // default
+}
+
+type module_adapter struct {
+	obj interface{}
+	f   func([]string, io.Writer) error
+	h   func(io.Writer)
+}
+
+func (this *module_adapter) Run(a []string, w io.Writer) error { return this.f(a, w) }
+func (this *module_adapter) Close() error                      { return nil }
+func (this *module_adapter) Help(w io.Writer)                  { this.h(w) }
+
 // Module helps with building command-line applications of the form
 // <command> <module> <flags...>
 type Module interface {
@@ -86,7 +112,11 @@ func RunModule(key string, module Module, args []string, w io.Writer) {
 		flagSet.SetOutput(os.Stderr)
 		flagSet.PrintDefaults()
 	}
-	gflag.RegisterFlags(key, module, flagSet)
+	if adapter, is := module.(*module_adapter); is {
+		gflag.RegisterFlags(key, adapter.obj, flagSet)
+	} else {
+		gflag.RegisterFlags(key, module, flagSet)
+	}
 	err := flagSet.Parse(args)
 	if err != nil {
 		handle(err, flag.ExitOnError)
