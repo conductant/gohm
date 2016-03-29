@@ -1,7 +1,7 @@
 package docker
 
 import (
-	_docker "github.com/fsouza/go-dockerclient"
+	"github.com/fsouza/go-dockerclient"
 )
 
 type Docker struct {
@@ -11,7 +11,7 @@ type Docker struct {
 	Key  string
 	Ca   string
 
-	docker *_docker.Client
+	docker *docker.Client
 
 	ContainerCreated func(*Container)
 	ContainerStarted func(*Container)
@@ -33,24 +33,24 @@ type Container struct {
 	Name    string `json:"name"`
 	Command string `json:"command"`
 	Ports   []Port `json:"ports"`
-	Network _docker.NetworkSettings
+	Network docker.NetworkSettings
 
-	DockerData *_docker.Container `json:"docker_data"`
+	DockerData *docker.Container `json:"docker_data"`
 
-	docker *_docker.Client
+	docker *docker.Client
 }
 
 type AuthIdentity struct {
-	_docker.AuthConfiguration
+	docker.AuthConfiguration
 }
 
 type ContainerControl struct {
-	*_docker.Config
+	*docker.Config
 
 	// If false, the container starts up in daemon mode (as a service) - default
-	RunOnce       bool                `json:"run_once,omitempty"`
-	HostConfig    *_docker.HostConfig `json:"host_config"`
-	ContainerName string              `json:"name,omitempty"`
+	RunOnce       bool               `json:"run_once,omitempty"`
+	HostConfig    *docker.HostConfig `json:"host_config"`
+	ContainerName string             `json:"name,omitempty"`
 }
 
 type Action int

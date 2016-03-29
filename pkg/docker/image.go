@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"errors"
 	"path"
 	"strings"
 )
@@ -21,6 +22,19 @@ func (this Image) ImageString() string {
 
 func (this Image) Url() string {
 	return path.Join(this.Registry, this.ImageString())
+}
+
+func ParseDockerImage(dockerImage string) (repo, tag string, err error) {
+	// docker image name := repo:tag tag := version-build
+	i := strings.Index(dockerImage, ":")
+	if i > -1 {
+		repo = dockerImage[:i]
+		tag = dockerImage[i+1:]
+		return
+	} else {
+		err = errors.New("bad image:" + dockerImage)
+		return
+	}
 }
 
 func ParseImageUrl(url string) Image {

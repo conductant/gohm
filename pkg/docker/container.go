@@ -4,6 +4,10 @@ import (
 	"strings"
 )
 
+func (c *Container) GetComparable() string {
+	return c.Image
+}
+
 func (c *Container) Inspect() error {
 	cc, err := c.docker.InspectContainer(c.Id)
 	if err != nil {
