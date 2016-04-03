@@ -65,8 +65,8 @@ func (this *Build) HandleFlag() {
 }
 
 func (this *Build) Notice() string {
-	return fmt.Sprintf("%s: Version %s (%s), Build %s, Label %s. Built on %s.",
-		os.Args[0], this.Tag, this.Commit, this.Number, this.Label, this.Timestamp)
+	return fmt.Sprintf("%s: Repo=%s, Version=%s:%s, Build=%s, Label=%s, BuiltOn=%s",
+		os.Args[0], this.RepoUrl, this.Tag, this.Commit, this.Number, this.Label, this.Timestamp)
 }
 
 func (this *Build) GetRepoUrl() string {
