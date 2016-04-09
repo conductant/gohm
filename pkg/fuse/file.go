@@ -167,7 +167,7 @@ func (f *File) Flush(c context.Context, req *fuse.FlushRequest) error {
 
 var _ = fs.NodeSetattrer(&File{})
 
-func (f *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+func (f *File) Setattr(c context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -183,5 +183,14 @@ func (f *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 			f.data = f.data[:newLen]
 		}
 	}
+	return nil
+}
+
+var _ = fs.NodeFsyncer(&File{})
+
+// Here we don't do anything and just handle the request with no error.
+// This is because we have a simple Put semantic that writes all the data in a single
+// call.  So there's no flushing or marking a commit.
+func (f *File) Fsync(c context.Context, req *fuse.FsyncRequest) error {
 	return nil
 }

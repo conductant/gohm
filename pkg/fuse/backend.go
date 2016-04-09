@@ -19,3 +19,7 @@ func (this *SimpleBackend) View(c context.Context, f func(Context) error) error 
 func (this *SimpleBackend) Update(c context.Context, f func(Context) error) error {
 	return f(this.GetContext(c))
 }
+
+func (this *SimpleBackend) Close() error {
+	return nil
+}

@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"golang.org/x/net/context"
+	"io"
 )
 
 type DirSource interface {
@@ -9,6 +10,7 @@ type DirSource interface {
 }
 
 type Backend interface {
+	io.Closer
 	DirSource
 	View(context.Context, func(Context) error) error
 	Update(context.Context, func(Context) error) error
@@ -33,7 +35,3 @@ type Context interface {
 	context.Context
 	Dir([]string) (DirLike, error)
 }
-
-const (
-	DirMarker = "~dir~"
-)

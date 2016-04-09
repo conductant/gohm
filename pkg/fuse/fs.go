@@ -17,3 +17,9 @@ func (f *FS) Root() (fs.Node, error) {
 	}
 	return n, nil
 }
+
+var _ = fs.FSDestroyer(&FS{})
+
+func (f *FS) Destroy() {
+	f.backend.Close()
+}

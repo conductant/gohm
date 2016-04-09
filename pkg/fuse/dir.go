@@ -172,3 +172,53 @@ func (d *Dir) Remove(c context.Context, req *fuse.RemoveRequest) error {
 		return nil
 	})
 }
+
+var _ = fs.NodeRenamer(&Dir{})
+
+func (d *Dir) Rename(c context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
+	return d.fs.backend.Update(c, func(ctx Context) error {
+		b, err := ctx.Dir(d.path)
+		if err != nil {
+			return err
+		}
+		data, err := b.Get(req.OldName)
+		if err != nil {
+			return err
+		}
+		if data == nil {
+			return fuse.ENOENT
+		}
+		targetDir := b
+		if d, ok := newDir.(*Dir); ok {
+			dd, err := ctx.Dir(d.path)
+			if err == nil {
+				targetDir = dd
+			} else {
+				return err
+			}
+		}
+		err = targetDir.Put(req.NewName, data)
+		if err != nil {
+			return err
+		}
+		return b.Delete(req.OldName)
+	})
+}
+
+var _ = fs.NodeLinker(&Dir{})
+
+func (d *Dir) Link(c context.Context, req *fuse.LinkRequest, old fs.Node) (fs.Node, error) {
+	return nil, fuse.ENOSYS
+}
+
+var _ = fs.NodeSymlinker(&Dir{})
+
+func (d *Dir) Symlink(c context.Context, req *fuse.SymlinkRequest) (fs.Node, error) {
+	return nil, fuse.ENOSYS
+}
+
+var _ = fs.NodeReadlinker(&File{})
+
+func (d *File) Readlink(c context.Context, req *fuse.ReadlinkRequest) (string, error) {
+	return "", fuse.ENOSYS
+}
