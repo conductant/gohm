@@ -4,6 +4,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"bazil.org/fuse/fuseutil"
+	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 	"sync"
 	"syscall"
@@ -45,6 +46,8 @@ func (f *File) load(c context.Context, fn func([]byte)) error {
 }
 
 func (f *File) Attr(c context.Context, a *fuse.Attr) error {
+	defer log.Debugln("file_attr:", f.dir.path, f.name, a)
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -168,6 +171,8 @@ func (f *File) Flush(c context.Context, req *fuse.FlushRequest) error {
 var _ = fs.NodeSetattrer(&File{})
 
 func (f *File) Setattr(c context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	log.Debugln("file_setattr:", f.dir.path, f.name, req)
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

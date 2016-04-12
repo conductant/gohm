@@ -4,6 +4,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"errors"
+	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 	"os"
 )
@@ -17,7 +18,15 @@ type Dir struct {
 var _ = fs.Node(&Dir{})
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
+	defer log.Debugln("dir_attr:", d.path, a)
 	a.Mode = os.ModeDir | 0755
+	return nil
+}
+
+var _ = fs.NodeSetattrer(&Dir{})
+
+func (d *Dir) Setattr(c context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	log.Debugln("dir_setattr:", d.path, req)
 	return nil
 }
 
@@ -52,6 +61,7 @@ func (d *Dir) ReadDirAll(c context.Context) ([]fuse.Dirent, error) {
 var _ = fs.NodeStringLookuper(&Dir{})
 
 func (d *Dir) Lookup(c context.Context, name string) (fs.Node, error) {
+	log.Debugln("lookup:", name)
 	var n fs.Node
 	err := d.fs.backend.View(c, func(ctx Context) error {
 		b, err := ctx.Dir(d.path)
@@ -208,17 +218,20 @@ func (d *Dir) Rename(c context.Context, req *fuse.RenameRequest, newDir fs.Node)
 var _ = fs.NodeLinker(&Dir{})
 
 func (d *Dir) Link(c context.Context, req *fuse.LinkRequest, old fs.Node) (fs.Node, error) {
+	log.Debugln("link:", req, old)
 	return nil, fuse.ENOSYS
 }
 
 var _ = fs.NodeSymlinker(&Dir{})
 
 func (d *Dir) Symlink(c context.Context, req *fuse.SymlinkRequest) (fs.Node, error) {
+	log.Debugln("symlink:", req)
 	return nil, fuse.ENOSYS
 }
 
 var _ = fs.NodeReadlinker(&File{})
 
 func (d *File) Readlink(c context.Context, req *fuse.ReadlinkRequest) (string, error) {
+	log.Debugln("readlink:", req)
 	return "", fuse.ENOSYS
 }

@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	log "github.com/Sirupsen/logrus"
 	. "gopkg.in/check.v1"
 	"testing"
 )
@@ -13,6 +14,7 @@ type TestSuiteBackend struct {
 var _ = Suite(&TestSuiteBackend{})
 
 func (suite *TestSuiteBackend) SetUpSuite(c *C) {
+	log.SetLevel(log.DebugLevel)
 }
 
 func (suite *TestSuiteBackend) TearDownSuite(c *C) {
