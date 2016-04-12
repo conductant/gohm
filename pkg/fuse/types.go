@@ -33,5 +33,5 @@ type DirLike interface {
 
 type Context interface {
 	context.Context
-	Dir([]string) (DirLike, error)
+	DirSource
 }
