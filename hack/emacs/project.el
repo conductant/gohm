@@ -118,10 +118,18 @@ it blindly to other people's files can cause enormously messy diffs!"
     (t                    (self-insert-command (or arg 1))) ))
 (global-set-key "%" `goto-match-paren)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Top level path
+;;
+(setq top-path (getenv "PWD"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; git mode
+(load (concat top-path "/hack/emacs/git.el"))
+(require 'git)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; go mode
-(setq top-path (getenv "PWD"))
-;(setq load-path (concat top-path "/hack/emacs/go-mode.el"))
 (load (concat top-path "/hack/emacs/go-mode.el"))
 (load (concat top-path "/hack/emacs/go-mode-autoloads.el"))
 (require 'go-mode-autoloads)
