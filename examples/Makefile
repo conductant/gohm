@@ -29,6 +29,9 @@ build-example-reverse-proxy:
 build-example-command:
 	${GODEP} go build -ldflags "$(LDFLAGS)" command.go
 
+build-example-fuse:
+	${GODEP} go build -ldflags "$(LDFLAGS)" fuse.go
+
 example-run-server: gen-key-pair
 	${GODEP} go run -ldflags "$(LDFLAGS)" server.go --logtostderr --port=5050 --auth.public.key=./example_key.pub
 
