@@ -27,6 +27,8 @@
 (global-set-key [s-right] 'windmove-right)        ; move to right window
 (global-set-key [s-up] 'windmove-up)              ; move to upper window
 (global-set-key [s-down] 'windmove-down)          ; move to lower window
+(global-set-key [(control c) (c)] 'compile)
+(global-set-key [(control c) (r)] 'recompile)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Useful for refreshing buffers after git pull
