@@ -8,17 +8,16 @@ func NewMapBackend(m map[string]interface{}) Backend {
 	return &SimpleBackend{DirSource: &mapbe{tree: m}}
 }
 
-// TODO - change this to make it work with all DirSource/DirLike implementations
 func (this *mapbe) Dir(path []string) (DirLike, error) {
-	l := this
+	var d DirLike = this
 	for _, p := range path {
-		if m, has := l.tree[p]; has {
-			if ll, ok := m.(*mapbe); ok {
-				l = ll
-			}
+		if dir, err := d.GetDir(p); err != nil || dir == nil {
+			return nil, err
+		} else {
+			d = dir
 		}
 	}
-	return l, nil
+	return d, nil
 }
 
 func (this *mapbe) GetDir(name string) (DirLike, error) {
