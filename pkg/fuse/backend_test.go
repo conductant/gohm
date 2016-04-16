@@ -3,6 +3,7 @@ package fuse
 import (
 	log "github.com/Sirupsen/logrus"
 	. "gopkg.in/check.v1"
+	"os"
 	"testing"
 )
 
@@ -21,6 +22,6 @@ func (suite *TestSuiteBackend) TearDownSuite(c *C) {
 }
 
 func (suite *TestSuiteBackend) TestBackend(c *C) {
-	err := Serve("/tmp/unit-test", NewMapBackend(map[string]interface{}{}), nil)
+	err := Serve(os.Getenv("HOME")+"/tmp/unit-test", NewMapBackend(map[string]interface{}{}), nil)
 	c.Assert(err, IsNil)
 }

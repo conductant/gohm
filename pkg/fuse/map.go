@@ -5,7 +5,7 @@ type mapbe struct {
 }
 
 func NewMapBackend(m map[string]interface{}) Backend {
-	return &SimpleBackend{DirSource: &mapbe{tree: m}}
+	return &SimpleBackend{DirLike: &mapbe{tree: m}}
 }
 
 func (this *mapbe) Meta(name string) (Meta, error) {
@@ -24,18 +24,6 @@ func (this *mapbe) Meta(name string) (Meta, error) {
 
 func (this *mapbe) Create(name string) error {
 	return nil
-}
-
-func (this *mapbe) Dir(path []string) (DirLike, error) {
-	var d DirLike = this
-	for _, p := range path {
-		if dir, err := d.GetDir(p); err != nil || dir == nil {
-			return nil, err
-		} else {
-			d = dir
-		}
-	}
-	return d, nil
 }
 
 func (this *mapbe) GetDir(name string) (DirLike, error) {

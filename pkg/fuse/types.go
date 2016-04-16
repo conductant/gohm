@@ -6,13 +6,9 @@ import (
 	"os"
 )
 
-type DirSource interface {
-	Dir(path []string) (DirLike, error)
-}
-
 type Backend interface {
 	io.Closer
-	DirSource
+	DirLike
 	View(context.Context, func(Context) error) error
 	Update(context.Context, func(Context) error) error
 }
@@ -42,5 +38,5 @@ type DirLike interface {
 
 type Context interface {
 	context.Context
-	DirSource
+	Dir([]string) (DirLike, error)
 }

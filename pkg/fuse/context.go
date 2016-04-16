@@ -9,31 +9,39 @@ type context_t struct {
 	context.Context
 }
 
-type dirSource_t int
+type dirLike_t int
 
 const (
-	dirSource_k dirSource_t = 2
+	dirLike_k dirLike_t = 1
 )
 
-func NewContext(ctx context.Context, dirSource DirSource) Context {
-	return contextPutDirSource(&context_t{ctx}, dirSource)
+func NewContext(ctx context.Context, dirLike DirLike) Context {
+	return contextPutDirLike(&context_t{ctx}, dirLike)
 }
 
 func (this *context_t) Dir(path []string) (DirLike, error) {
-	b := contextGetDirSource(this)
+	b := contextGetDirLike(this)
 	if b == nil {
-		return nil, fmt.Errorf("assert-dirSource-failed")
+		return nil, fmt.Errorf("assert-DirLike-failed")
 	}
-	return b.Dir(path)
+	var d DirLike = b
+	for _, p := range path {
+		if dir, err := d.GetDir(p); err != nil || dir == nil {
+			return nil, err
+		} else {
+			d = dir
+		}
+	}
+	return d, nil
 }
 
-func contextGetDirSource(ctx *context_t) DirSource {
-	if b, ok := ctx.Value(dirSource_k).(DirSource); ok {
+func contextGetDirLike(ctx *context_t) DirLike {
+	if b, ok := ctx.Value(dirLike_k).(DirLike); ok {
 		return b
 	}
 	return nil
 }
 
-func contextPutDirSource(ctx *context_t, b DirSource) *context_t {
-	return &context_t{context.WithValue(ctx, dirSource_k, b)}
+func contextPutDirLike(ctx *context_t, b DirLike) *context_t {
+	return &context_t{context.WithValue(ctx, dirLike_k, b)}
 }
