@@ -133,7 +133,8 @@ func (d *Dir) Mkdir(c context.Context, req *fuse.MkdirRequest) (fs.Node, error) 
 
 var _ = fs.NodeCreater(&Dir{})
 
-func (d *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+func (d *Dir) Create(c context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+	log.Debugln("create:", req)
 
 	name := req.Name
 	f := &File{
@@ -142,7 +143,14 @@ func (d *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 		writers: 1,
 		// file is empty at Create time, no need to set data
 	}
-	return f, f, nil
+
+	return f, f, d.fs.backend.Update(c, func(ctx Context) error {
+		b, err := ctx.Dir(d.path)
+		if err != nil {
+			return err
+		}
+		return b.Create(name)
+	})
 }
 
 var _ = fs.NodeRemover(&Dir{})

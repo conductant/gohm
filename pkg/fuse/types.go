@@ -3,6 +3,7 @@ package fuse
 import (
 	"golang.org/x/net/context"
 	"io"
+	"os"
 )
 
 type DirSource interface {
@@ -21,11 +22,19 @@ type Entry struct {
 	Dir  bool
 }
 
+type Meta struct {
+	Perm os.FileMode
+	Size uint64
+	Uid  uint32
+}
+
 type DirLike interface {
 	GetDir(name string) (DirLike, error)
 	CreateDir(name string) (DirLike, error)
 	DeleteDir(name string) error
 	Cursor() <-chan Entry
+	Create(name string) error
+	Meta(name string) (Meta, error)
 	Get(name string) ([]byte, error)
 	Put(name string, value []byte) error
 	Delete(name string) error

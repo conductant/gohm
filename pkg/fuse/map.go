@@ -8,6 +8,24 @@ func NewMapBackend(m map[string]interface{}) Backend {
 	return &SimpleBackend{DirSource: &mapbe{tree: m}}
 }
 
+func (this *mapbe) Meta(name string) (Meta, error) {
+	size := uint64(0)
+	if v, has := this.tree[name]; has {
+		if buff, is := v.([]byte); is {
+			size = uint64(len(buff))
+		}
+	}
+	return Meta{
+		Perm: 0644,
+		Size: size,
+		Uid:  501, // TODO -fix this
+	}, nil
+}
+
+func (this *mapbe) Create(name string) error {
+	return nil
+}
+
 func (this *mapbe) Dir(path []string) (DirLike, error) {
 	var d DirLike = this
 	for _, p := range path {

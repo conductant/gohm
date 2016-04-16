@@ -51,14 +51,25 @@ func (f *File) Attr(c context.Context, a *fuse.Attr) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	a.Mode = 0644
-	a.Size = uint64(len(f.data))
-	if f.writers == 0 {
-		// not in memory, fetch correct size.
-		// Attr can't fail, so ignore errors
-		_ = f.load(c, func(b []byte) { a.Size = uint64(len(b)) })
-	}
-	return nil
+	return f.dir.fs.backend.View(c, func(ctx Context) error {
+		b, err := ctx.Dir(f.dir.path)
+		if err != nil {
+			return err
+		}
+		meta, err := b.Meta(f.name)
+		if err != nil {
+			return err
+		}
+		a.Uid = meta.Uid
+		a.Mode = meta.Perm
+		a.Size = uint64(len(f.data))
+		if f.writers == 0 {
+			// not in memory, fetch correct size.
+			// Attr can't fail, so ignore errors
+			_ = f.load(c, func(buff []byte) { a.Size = uint64(len(buff)) })
+		}
+		return nil
+	})
 }
 
 var _ = fs.NodeOpener(&File{})
