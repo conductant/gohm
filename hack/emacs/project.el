@@ -27,6 +27,8 @@
 (global-set-key [s-right] 'windmove-right)        ; move to right window
 (global-set-key [s-up] 'windmove-up)              ; move to upper window
 (global-set-key [s-down] 'windmove-down)          ; move to lower window
+(global-set-key [(control c) (c)] 'compile)
+(global-set-key [(control c) (r)] 'recompile)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Useful for refreshing buffers after git pull
@@ -118,10 +120,18 @@ it blindly to other people's files can cause enormously messy diffs!"
     (t                    (self-insert-command (or arg 1))) ))
 (global-set-key "%" `goto-match-paren)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Top level path
+;;
+(setq top-path (getenv "PWD"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; git mode
+(load (concat top-path "/hack/emacs/git.el"))
+(require 'git)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; go mode
-(setq top-path (getenv "PWD"))
-;(setq load-path (concat top-path "/hack/emacs/go-mode.el"))
 (load (concat top-path "/hack/emacs/go-mode.el"))
 (load (concat top-path "/hack/emacs/go-mode-autoloads.el"))
 (require 'go-mode-autoloads)
