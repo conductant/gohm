@@ -195,6 +195,24 @@ func (f *File) Flush(c context.Context, req *fuse.FlushRequest) error {
 		if err != nil {
 			return err
 		}
+
+		t, err := b.Get(f.name)
+		if err != nil {
+			return err
+		}
+		switch t := t.(type) {
+		case []byte:
+			return b.Put(f.name, f.data)
+		case *File: // hard link
+			if t.link {
+				bb, err := ctx.Dir(t.dir.path)
+				if err != nil {
+					return err
+				}
+				return bb.Put(t.name, f.data)
+			}
+		}
+
 		return b.Put(f.name, f.data)
 	})
 	if err != nil {
