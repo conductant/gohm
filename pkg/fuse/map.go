@@ -1,11 +1,23 @@
 package fuse
 
+import (
+	"os"
+)
+
 type mapbe struct {
 	tree map[string]interface{}
 }
 
 func NewMapBackend(m map[string]interface{}) Backend {
 	return &SimpleBackend{DirLike: &mapbe{tree: m}}
+}
+
+func (this *mapbe) DirMeta() (Meta, error) {
+	return Meta{
+		Perm: 0755,
+		Uid:  uint32(os.Getuid()),
+		Gid:  uint32(os.Getgid()),
+	}, nil
 }
 
 func (this *mapbe) Meta(name string) (Meta, error) {
@@ -18,7 +30,8 @@ func (this *mapbe) Meta(name string) (Meta, error) {
 	return Meta{
 		Perm: 0644,
 		Size: size,
-		Uid:  501, // TODO -fix this
+		Uid:  uint32(os.Getuid()),
+		Gid:  uint32(os.Getgid()),
 	}, nil
 }
 
@@ -70,16 +83,14 @@ func (this *mapbe) Cursor() <-chan Entry {
 	return out
 }
 
-func (this *mapbe) Get(name string) ([]byte, error) {
+func (this *mapbe) Get(name string) (interface{}, error) {
 	if v, has := this.tree[name]; has {
-		if b, ok := v.([]byte); ok {
-			return b, nil
-		}
+		return v, nil
 	}
 	return nil, nil
 }
 
-func (this *mapbe) Put(name string, value []byte) error {
+func (this *mapbe) Put(name string, value interface{}) error {
 	this.tree[name] = value
 	return nil
 }

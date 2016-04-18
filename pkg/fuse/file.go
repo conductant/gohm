@@ -6,6 +6,7 @@ import (
 	"bazil.org/fuse/fuseutil"
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
+	"os"
 	"sync"
 	"syscall"
 )
@@ -19,6 +20,9 @@ type File struct {
 	writers uint
 	// only valid if writers > 0
 	data []byte
+
+	link   bool
+	target string
 }
 
 var _ = fs.Node(&File{})
@@ -39,7 +43,23 @@ func (f *File) load(c context.Context, fn func([]byte)) error {
 		if v == nil {
 			return fuse.ESTALE
 		}
-		fn(v)
+		switch v := v.(type) {
+		case []byte:
+			fn(v)
+		case *File: // hard link
+			t, err := ctx.Dir(v.dir.path)
+			if err != nil {
+				return err
+			}
+			vv, err := t.Get(v.name)
+			if err != nil {
+				return err
+			}
+			if buff, ok := vv.([]byte); ok {
+				fn(buff)
+			}
+		default:
+		}
 		return nil
 	})
 	return err
@@ -61,7 +81,11 @@ func (f *File) Attr(c context.Context, a *fuse.Attr) error {
 			return err
 		}
 		a.Uid = meta.Uid
+		a.Gid = meta.Gid
 		a.Mode = meta.Perm
+		if f.link {
+			a.Mode = a.Mode | os.ModeSymlink
+		}
 		a.Size = uint64(len(f.data))
 		if f.writers == 0 {
 			// not in memory, fetch correct size.

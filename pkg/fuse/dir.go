@@ -17,10 +17,22 @@ type Dir struct {
 
 var _ = fs.Node(&Dir{})
 
-func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
+func (d *Dir) Attr(c context.Context, a *fuse.Attr) error {
 	defer log.Debugln("dir_attr:", d.path, a)
-	a.Mode = os.ModeDir | 0755
-	return nil
+	return d.fs.backend.View(c, func(ctx Context) error {
+		b, err := ctx.Dir(d.path)
+		if err != nil {
+			return err
+		}
+		meta, err := b.DirMeta()
+		if err != nil {
+			return err
+		}
+		a.Uid = meta.Uid
+		a.Gid = meta.Gid
+		a.Mode = os.ModeDir | meta.Perm
+		return nil
+	})
 }
 
 var _ = fs.NodeSetattrer(&Dir{})
@@ -225,21 +237,49 @@ func (d *Dir) Rename(c context.Context, req *fuse.RenameRequest, newDir fs.Node)
 
 var _ = fs.NodeLinker(&Dir{})
 
-func (d *Dir) Link(c context.Context, req *fuse.LinkRequest, old fs.Node) (fs.Node, error) {
-	log.Debugln("link:", req, old)
-	return nil, fuse.ENOSYS
+func (d *Dir) Link(c context.Context, req *fuse.LinkRequest, old fs.Node) (l fs.Node, err error) {
+	defer log.Debugln("link:", req, "err=", err)
+	err = d.fs.backend.Update(c, func(ctx Context) error {
+		b, err := ctx.Dir(d.path)
+		if err != nil {
+			return err
+		}
+		return b.Put(req.NewName, old)
+	})
+	l = old
+	return
 }
 
 var _ = fs.NodeSymlinker(&Dir{})
 
-func (d *Dir) Symlink(c context.Context, req *fuse.SymlinkRequest) (fs.Node, error) {
-	log.Debugln("symlink:", req)
-	return nil, fuse.ENOSYS
+func (d *Dir) Symlink(c context.Context, req *fuse.SymlinkRequest) (l fs.Node, err error) {
+	defer log.Debugln("symlink:", req, l, "err=", err)
+	f := &File{
+		dir:    d,
+		name:   req.NewName,
+		link:   true,
+		target: req.Target,
+	}
+
+	err = d.fs.backend.Update(c, func(ctx Context) error {
+		b, err := ctx.Dir(d.path)
+		if err != nil {
+			return err
+		}
+		return b.Put(f.name, f)
+	})
+	l = f
+	return
 }
 
 var _ = fs.NodeReadlinker(&File{})
 
-func (d *File) Readlink(c context.Context, req *fuse.ReadlinkRequest) (string, error) {
-	log.Debugln("readlink:", req)
-	return "", fuse.ENOSYS
+func (f *File) Readlink(c context.Context, req *fuse.ReadlinkRequest) (target string, err error) {
+	defer log.Debugln("readlink:", req, target, err)
+	if !f.link {
+		return "", fuse.ENOENT
+	}
+	target = f.target
+	err = nil
+	return
 }
