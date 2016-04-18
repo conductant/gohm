@@ -12,7 +12,7 @@ type context_t struct {
 type dirLike_t int
 
 const (
-	dirLike_k dirLike_t = 2
+	dirLike_k dirLike_t = 1
 )
 
 func NewContext(ctx context.Context, dirLike DirLike) Context {
@@ -22,10 +22,17 @@ func NewContext(ctx context.Context, dirLike DirLike) Context {
 func (this *context_t) Dir(path []string) (DirLike, error) {
 	b := contextGetDirLike(this)
 	if b == nil {
-		return nil, fmt.Errorf("assert-dirLike-failed")
+		return nil, fmt.Errorf("assert-DirLike-failed")
 	}
-	// TODO -fix me
-	return nil, nil
+	var d DirLike = b
+	for _, p := range path {
+		if dir, err := d.GetDir(p); err != nil || dir == nil {
+			return nil, err
+		} else {
+			d = dir
+		}
+	}
+	return d, nil
 }
 
 func contextGetDirLike(ctx *context_t) DirLike {

@@ -239,14 +239,20 @@ var _ = fs.NodeLinker(&Dir{})
 
 func (d *Dir) Link(c context.Context, req *fuse.LinkRequest, old fs.Node) (l fs.Node, err error) {
 	defer log.Debugln("link:", req, "err=", err)
+	l = old
 	err = d.fs.backend.Update(c, func(ctx Context) error {
 		b, err := ctx.Dir(d.path)
 		if err != nil {
 			return err
 		}
-		return b.Put(req.NewName, old)
+		if tf, is := old.(*File); is {
+			lf := new(File)
+			*lf = *tf
+			lf.link = true
+			return b.Put(req.NewName, lf)
+		}
+		return nil
 	})
-	l = old
 	return
 }
 
