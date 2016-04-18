@@ -3,15 +3,12 @@ package fuse
 import (
 	"golang.org/x/net/context"
 	"io"
+	"os"
 )
-
-type DirSource interface {
-	Dir(path []string) (DirLike, error)
-}
 
 type Backend interface {
 	io.Closer
-	DirSource
+	DirLike
 	View(context.Context, func(Context) error) error
 	Update(context.Context, func(Context) error) error
 }
@@ -21,17 +18,27 @@ type Entry struct {
 	Dir  bool
 }
 
+type Meta struct {
+	Perm os.FileMode
+	Size uint64
+	Uid  uint32
+	Gid  uint32
+}
+
 type DirLike interface {
+	DirMeta() (Meta, error)
 	GetDir(name string) (DirLike, error)
 	CreateDir(name string) (DirLike, error)
 	DeleteDir(name string) error
 	Cursor() <-chan Entry
-	Get(name string) ([]byte, error)
-	Put(name string, value []byte) error
+	Create(name string) error
+	Meta(name string) (Meta, error)
+	Get(name string) (interface{}, error)
+	Put(name string, value interface{}) error
 	Delete(name string) error
 }
 
 type Context interface {
 	context.Context
-	DirSource
+	Dir([]string) (DirLike, error)
 }

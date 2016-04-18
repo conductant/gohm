@@ -1,24 +1,42 @@
 package fuse
 
+import (
+	"os"
+)
+
 type mapbe struct {
 	tree map[string]interface{}
 }
 
 func NewMapBackend(m map[string]interface{}) Backend {
-	return &SimpleBackend{DirSource: &mapbe{tree: m}}
+	return &SimpleBackend{DirLike: &mapbe{tree: m}}
 }
 
-// TODO - change this to make it work with all DirSource/DirLike implementations
-func (this *mapbe) Dir(path []string) (DirLike, error) {
-	l := this
-	for _, p := range path {
-		if m, has := l.tree[p]; has {
-			if ll, ok := m.(*mapbe); ok {
-				l = ll
-			}
+func (this *mapbe) DirMeta() (Meta, error) {
+	return Meta{
+		Perm: 0755,
+		Uid:  uint32(os.Getuid()),
+		Gid:  uint32(os.Getgid()),
+	}, nil
+}
+
+func (this *mapbe) Meta(name string) (Meta, error) {
+	size := uint64(0)
+	if v, has := this.tree[name]; has {
+		if buff, is := v.([]byte); is {
+			size = uint64(len(buff))
 		}
 	}
-	return l, nil
+	return Meta{
+		Perm: 0644,
+		Size: size,
+		Uid:  uint32(os.Getuid()),
+		Gid:  uint32(os.Getgid()),
+	}, nil
+}
+
+func (this *mapbe) Create(name string) error {
+	return nil
 }
 
 func (this *mapbe) GetDir(name string) (DirLike, error) {
@@ -65,16 +83,14 @@ func (this *mapbe) Cursor() <-chan Entry {
 	return out
 }
 
-func (this *mapbe) Get(name string) ([]byte, error) {
+func (this *mapbe) Get(name string) (interface{}, error) {
 	if v, has := this.tree[name]; has {
-		if b, ok := v.([]byte); ok {
-			return b, nil
-		}
+		return v, nil
 	}
 	return nil, nil
 }
 
-func (this *mapbe) Put(name string, value []byte) error {
+func (this *mapbe) Put(name string, value interface{}) error {
 	this.tree[name] = value
 	return nil
 }
