@@ -135,6 +135,7 @@ it blindly to other people's files can cause enormously messy diffs!"
 ;; go mode
 (load (concat top-path "/hack/emacs/go-mode.el"))
 (load (concat top-path "/hack/emacs/go-mode-autoloads.el"))
+(load (concat top-path "/hack/emacs/oracle.el"))
 (require 'go-mode-autoloads)
 (add-hook 'before-save-hook #'gofmt-before-save)
 (add-hook 'go-mode-hook '(lambda ()
@@ -143,7 +144,12 @@ it blindly to other people's files can cause enormously messy diffs!"
   (local-set-key (kbd "C-c C-g") 'go-goto-imports)))
 (add-hook 'go-mode-hook '(lambda ()
   (local-set-key (kbd "C-c C-k") 'godoc)))
-(load (concat top-path "/hack/emacs/oracle.el"))
+(add-hook 'go-mode-hook '(lambda ()
+  (local-set-key (kbd "C-c i") 'go-oracle-definition)))
+(add-hook 'go-mode-hook '(lambda ()
+  (local-set-key (kbd "C-c l") 'go-oracle-callers)))
+(add-hook 'go-mode-hook '(lambda ()
+  (local-set-key (kbd "C-c m") 'go-oracle-implements)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; yaml
 (load (concat top-path "/hack/emacs/yaml-mode.el"))
