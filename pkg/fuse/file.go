@@ -4,7 +4,6 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"bazil.org/fuse/fuseutil"
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 	"os"
@@ -184,6 +183,10 @@ func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 var _ = fs.HandleFlusher(&File{})
 
 func (f *File) Flush(c context.Context, req *fuse.FlushRequest) error {
+	return f.doFlush(c, req, f.data)
+}
+
+func (f *File) doFlush(c context.Context, req *fuse.FlushRequest, data interface{}) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -204,21 +207,14 @@ func (f *File) Flush(c context.Context, req *fuse.FlushRequest) error {
 			return err
 		}
 		switch t := t.(type) {
-		case []byte:
-			return b.Put(f.name, f.data)
 		case *File: // hard link
 			if t.link {
-				bb, err := ctx.Dir(t.dir.path)
-				if err != nil {
-					return err
-				}
-				return bb.Put(t.name, f.data)
-			} else {
-				panic(fmt.Errorf("why here"))
+				return t.doFlush(c, req, data)
 			}
+		default:
+			return b.Put(f.name, data)
 		}
-
-		return b.Put(f.name, f.data)
+		return nil
 	})
 	if err != nil {
 		return err
