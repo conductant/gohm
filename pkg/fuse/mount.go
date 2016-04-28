@@ -3,6 +3,7 @@ package fuse
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	log "github.com/Sirupsen/logrus"
 	"io"
 	"os"
 )
@@ -29,6 +30,7 @@ func Serve(mountpoint string, b Backend, stop <-chan interface{}) error {
 	}
 
 	<-stop
+	log.Infof("Unmounting %s\n", mountpoint)
 
 	Unmount(mountpoint)
 	return closer.Close()

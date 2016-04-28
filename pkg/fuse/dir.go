@@ -245,13 +245,14 @@ func (d *Dir) Link(c context.Context, req *fuse.LinkRequest, old fs.Node) (l fs.
 		if err != nil {
 			return err
 		}
-		if tf, is := old.(*File); is {
-			lf := new(File)
-			*lf = *tf
-			lf.link = true
-			return b.Put(req.NewName, lf)
+		tf := old.(*File) // panics if not
+		lf := new(File)
+		*lf = *tf
+		lf.link = true
+		if err = b.Put(req.NewName, lf); err == nil {
+			tf.links++
 		}
-		return nil
+		return err
 	})
 	return
 }

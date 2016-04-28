@@ -4,6 +4,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"bazil.org/fuse/fuseutil"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 	"os"
@@ -23,6 +24,7 @@ type File struct {
 
 	link   bool
 	target string
+	links  uint32
 }
 
 var _ = fs.Node(&File{})
@@ -31,6 +33,7 @@ var _ = fs.Handle(&File{})
 // load calls fn inside a View with the contents of the file. Caller
 // must make a copy of the data if needed.
 func (f *File) load(c context.Context, fn func([]byte)) error {
+	defer log.Debugln("load:", f.dir.path, f.name)
 	err := f.dir.fs.backend.View(c, func(ctx Context) error {
 		b, err := ctx.Dir(f.dir.path)
 		if err != nil {
@@ -47,17 +50,8 @@ func (f *File) load(c context.Context, fn func([]byte)) error {
 		case []byte:
 			fn(v)
 		case *File: // hard link
-			t, err := ctx.Dir(v.dir.path)
-			if err != nil {
-				return err
-			}
-			vv, err := t.Get(v.name)
-			if err != nil {
-				return err
-			}
-			if buff, ok := vv.([]byte); ok {
-				fn(buff)
-			}
+			log.Debugln(f.dir.path, f.name, "->", v.dir.path, v.name)
+			return v.load(c, fn)
 		default:
 		}
 		return nil
@@ -83,6 +77,7 @@ func (f *File) Attr(c context.Context, a *fuse.Attr) error {
 		a.Uid = meta.Uid
 		a.Gid = meta.Gid
 		a.Mode = meta.Perm
+		a.Nlink = f.links
 		if f.link {
 			a.Mode = a.Mode | os.ModeSymlink
 		}
@@ -99,6 +94,13 @@ func (f *File) Attr(c context.Context, a *fuse.Attr) error {
 var _ = fs.NodeOpener(&File{})
 
 func (f *File) Open(c context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
+	defer log.Debugln("open:", f.dir.path, f.name, "resp=", resp, "flags=", resp.Flags)
+
+	resp.Flags = fuse.OpenDirectIO |
+		fuse.OpenNonSeekable |
+		fuse.OpenPurgeAttr |
+		fuse.OpenPurgeUBC
+
 	if req.Flags.IsReadOnly() {
 		// we don't need to track read-only handles
 		return f, nil
@@ -118,6 +120,7 @@ func (f *File) Open(c context.Context, req *fuse.OpenRequest, resp *fuse.OpenRes
 	}
 
 	f.writers++
+
 	return f, nil
 }
 
@@ -210,6 +213,8 @@ func (f *File) Flush(c context.Context, req *fuse.FlushRequest) error {
 					return err
 				}
 				return bb.Put(t.name, f.data)
+			} else {
+				panic(fmt.Errorf("why here"))
 			}
 		}
 
