@@ -7,6 +7,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 )
@@ -29,6 +30,12 @@ type File struct {
 var _ = fs.Node(&File{})
 var _ = fs.Handle(&File{})
 
+func (f *File) same_path(o *File) bool {
+	p1 := strings.Join(append(f.dir.path, f.name), "/")
+	p2 := strings.Join(append(o.dir.path, o.name), "/")
+	return p1 == p2
+}
+
 // load calls fn inside a View with the contents of the file. Caller
 // must make a copy of the data if needed.
 func (f *File) load(c context.Context, fn func([]byte)) error {
@@ -49,8 +56,10 @@ func (f *File) load(c context.Context, fn func([]byte)) error {
 		case []byte:
 			fn(v)
 		case *File: // hard link
-			log.Debugln(f.dir.path, f.name, "->", v.dir.path, v.name)
-			return v.load(c, fn)
+			if !f.same_path(v) {
+				log.Debugln(f.dir.path, f.name, "->", v.dir.path, v.name)
+				return v.load(c, fn)
+			}
 		default:
 		}
 		return nil
@@ -95,10 +104,11 @@ var _ = fs.NodeOpener(&File{})
 func (f *File) Open(c context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	defer log.Debugln("open:", f.dir.path, f.name, "resp=", resp, "flags=", resp.Flags)
 
-	resp.Flags = fuse.OpenDirectIO |
-		fuse.OpenNonSeekable |
-		fuse.OpenPurgeAttr |
-		fuse.OpenPurgeUBC
+	resp.Flags =
+		fuse.OpenDirectIO | // git gives bus error when this is set
+			fuse.OpenNonSeekable |
+			fuse.OpenPurgeAttr |
+			fuse.OpenPurgeUBC
 
 	if req.Flags.IsReadOnly() {
 		// we don't need to track read-only handles
