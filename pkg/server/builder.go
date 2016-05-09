@@ -56,6 +56,10 @@ func (this *serviceBuilder) OnShutdown(run func() error) *serviceBuilder {
 	return this
 }
 
+func (this *serviceBuilder) DisableAuth() *serviceBuilder {
+	return this.WithAuth(DisableAuth())
+}
+
 func (this *serviceBuilder) WithAuth(auth AuthManager) *serviceBuilder {
 	this.lock.Lock()
 	defer this.lock.Unlock()

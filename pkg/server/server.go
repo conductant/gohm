@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/golang/glog"
 	"net"
 	"net/http"
 	"os"
@@ -20,13 +19,10 @@ func Start(port int, endpoint http.Handler, onShutdown func() error, timeout tim
 	// Custom shutdown task
 	shutdownTasks <- onShutdown
 
-	glog.Infoln("Starting server")
 	engineStop, engineStopped := RunServer(&http.Server{Handler: endpoint, Addr: fmt.Sprintf(":%d", port)})
 	shutdownTasks <- func() error {
-		glog.Infoln("Stopping engine")
 		engineStop <- 1
 		err := <-engineStopped
-		glog.Infoln("Stopped engine. Err=", err)
 		return err
 	}
 
@@ -35,7 +31,6 @@ func Start(port int, endpoint http.Handler, onShutdown func() error, timeout tim
 		// Clean up pid file
 		shutdownTasks <- func() error {
 			os.Remove(pid)
-			glog.Infoln("Removed pid file:", pid)
 			return nil
 		}
 	}
@@ -56,9 +51,7 @@ func Start(port int, endpoint http.Handler, onShutdown func() error, timeout tim
 	go func() {
 		select {
 		case <-fromKernel:
-			glog.Infoln("Received kernel signal to start shutdown.")
 		case <-fromUser:
-			glog.Infoln("Received user signal to start shutdown.")
 		}
 		for {
 			task, ok := <-shutdownTasks
@@ -66,7 +59,6 @@ func Start(port int, endpoint http.Handler, onShutdown func() error, timeout tim
 				break
 			}
 			if err := task(); err != nil {
-				glog.Warningln("Error while shutting down:", err)
 				stopped <- err
 				return
 			}
@@ -108,21 +100,16 @@ func RunServer(server *http.Server) (chan<- int, <-chan error) {
 	go func() {
 		<-stop
 		*userInitiated = true
-		glog.Infoln("Closing listener")
 		listener.Close()
-		glog.Infoln("Listener closed")
 	}()
 
 	go func() {
-
-		glog.Infoln("Starting", protocol, "listener at", server.Addr)
 
 		// Serve will block until an error (e.g. from shutdown, closed connection) occurs.
 		err := server.Serve(listener)
 
 		switch {
 		case !*userInitiated && err != nil:
-			glog.Infoln("Engine stopped due to error", err)
 			panic(err)
 		case *userInitiated:
 			stopped <- nil
