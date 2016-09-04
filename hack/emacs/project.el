@@ -32,6 +32,15 @@
 (global-set-key [(control c) (k)] 'kill-compilation)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Switching to previous buffer
+(defun switch-to-previous-buffer ()
+  "Switch to previously open buffer.
+Repeated invocations toggle between the two most recently open buffers."
+  (interactive)
+  (switch-to-buffer (other-buffer (current-buffer) 1)))
+(global-set-key (kbd "C-c b") 'switch-to-previous-buffer)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Useful for refreshing buffers after git pull
 (defun revert-all-buffers ()
     "Refreshes all open buffers from their respective files."
@@ -135,8 +144,12 @@ it blindly to other people's files can cause enormously messy diffs!"
 ;; go mode
 (load (concat top-path "/hack/emacs/go-mode.el"))
 (load (concat top-path "/hack/emacs/go-mode-autoloads.el"))
-(load (concat top-path "/hack/emacs/oracle.el"))
+;;(load (concat top-path "/hack/emacs/oracle.el"))
+(load (concat top-path "/hack/emacs/go-guru.el"))
 (require 'go-mode-autoloads)
+(require 'go-guru)
+(go-guru-hl-identifier-mode)
+(add-hook 'go-mode-hook #'go-guru-hl-identifier-mode)
 (add-hook 'before-save-hook #'gofmt-before-save)
 (add-hook 'go-mode-hook '(lambda ()
   (local-set-key (kbd "C-c C-r") 'go-remove-unused-imports)))
@@ -145,11 +158,12 @@ it blindly to other people's files can cause enormously messy diffs!"
 (add-hook 'go-mode-hook '(lambda ()
   (local-set-key (kbd "C-c C-k") 'godoc)))
 (add-hook 'go-mode-hook '(lambda ()
-  (local-set-key (kbd "C-c i") 'go-oracle-definition)))
+  (local-set-key (kbd "C-c i") 'go-guru-definition)))
 (add-hook 'go-mode-hook '(lambda ()
-  (local-set-key (kbd "C-c l") 'go-oracle-callers)))
+  (local-set-key (kbd "C-c l") 'go-guru-callers)))
 (add-hook 'go-mode-hook '(lambda ()
-  (local-set-key (kbd "C-c m") 'go-oracle-implements)))
+  (local-set-key (kbd "C-c m") 'go-guru-implements)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; yaml
 (load (concat top-path "/hack/emacs/yaml-mode.el"))
@@ -181,3 +195,10 @@ it blindly to other people's files can cause enormously messy diffs!"
           (switch-to-buffer "*compilation*")
           (shrink-window (- h 20)))))))
 ;;(add-hook 'compilation-mode-hook 'my-compilation-hook)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; javascript
+(defun my-javascript-mode-hook ()
+  (setq indent-tabs-mode nil tab-width 4 js-indent-level 4)
+  )
+(add-hook 'javascript-mode-hook 'my-javascript-mode-hook)
